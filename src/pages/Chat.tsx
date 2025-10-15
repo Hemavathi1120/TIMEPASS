@@ -1,13 +1,14 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, setDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { Send, ArrowLeft } from 'lucide-react';
+import { Send, ArrowLeft, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Message {
   id: string;
@@ -28,57 +29,115 @@ const Chat = () => {
   const { conversationId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [otherUser, setOtherUser] = useState<OtherUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actualConversationId, setActualConversationId] = useState<string | null>(conversationId || null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!user || !conversationId) return;
+    if (!user) return;
 
     const loadConversation = async () => {
       try {
-        // Get conversation to find other user
-        const conversationDoc = await getDoc(doc(db, 'conversations', conversationId));
-        if (!conversationDoc.exists()) {
-          toast({
-            title: "Error",
-            description: "Conversation not found",
-            variant: "destructive",
+        let convId = conversationId;
+        let otherUserId: string | null = null;
+
+        // Check if starting a new conversation from location state
+        const stateUserId = location.state?.userId;
+        
+        if (!convId && stateUserId) {
+          // Try to find existing conversation
+          const existingConvQuery = query(
+            collection(db, 'conversations'),
+            where('participants', 'array-contains', user.uid)
+          );
+          
+          const existingConvSnapshot = await getDocs(existingConvQuery);
+          const existing = existingConvSnapshot.docs.find(doc => {
+            const data = doc.data();
+            return data.participants.includes(stateUserId);
           });
-          navigate('/messages');
+
+          if (existing) {
+            // Use existing conversation
+            convId = existing.id;
+            setActualConversationId(convId);
+            navigate(`/chat/${convId}`, { replace: true });
+          } else {
+            // Create new conversation
+            const newConvRef = await addDoc(collection(db, 'conversations'), {
+              participants: [user.uid, stateUserId],
+              lastMessage: '',
+              lastMessageTime: serverTimestamp(),
+              unreadCount: {
+                [user.uid]: 0,
+                [stateUserId]: 0,
+              },
+              createdAt: serverTimestamp(),
+            });
+            
+            convId = newConvRef.id;
+            setActualConversationId(convId);
+            navigate(`/chat/${convId}`, { replace: true });
+          }
+          
+          otherUserId = stateUserId;
+        } else if (convId) {
+          // Load existing conversation
+          const conversationDoc = await getDoc(doc(db, 'conversations', convId));
+          if (!conversationDoc.exists()) {
+            setError('Conversation not found');
+            setLoading(false);
+            return;
+          }
+
+          const conversationData = conversationDoc.data();
+          otherUserId = conversationData.participants.find((id: string) => id !== user.uid);
+          setActualConversationId(convId);
+        } else {
+          setError('No conversation specified');
+          setLoading(false);
           return;
         }
 
-        const conversationData = conversationDoc.data();
-        const otherUserId = conversationData.participants.find((id: string) => id !== user.uid);
-
         // Get other user's info
-        const userDoc = await getDoc(doc(db, 'users', otherUserId));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setOtherUser({
-            id: otherUserId,
-            username: userData.username || 'Unknown',
-            avatarUrl: userData.avatarUrl || '',
-          });
+        if (otherUserId) {
+          const userDoc = await getDoc(doc(db, 'users', otherUserId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setOtherUser({
+              id: otherUserId,
+              username: userData.username || 'Unknown',
+              avatarUrl: userData.avatarUrl || '',
+            });
+          }
         }
 
         setLoading(false);
       } catch (error) {
         console.error('Error loading conversation:', error);
+        setError('Failed to load conversation');
         setLoading(false);
       }
     };
 
     loadConversation();
 
-    // Listen to messages
+    return () => {};
+  }, [conversationId, user, navigate, location, toast]);
+
+  // Separate effect for listening to messages
+  useEffect(() => {
+    if (!user || !actualConversationId) return;
+
     const messagesQuery = query(
       collection(db, 'messages'),
-      where('conversationId', '==', conversationId),
+      where('conversationId', '==', actualConversationId),
       orderBy('createdAt', 'asc')
     );
 
@@ -96,23 +155,30 @@ const Chat = () => {
       );
 
       if (unreadMessages.length > 0) {
-        // Mark individual messages as read
-        for (const msg of unreadMessages) {
-          await updateDoc(doc(db, 'messages', msg.id), {
-            read: true,
-          });
-        }
+        try {
+          // Mark individual messages as read
+          for (const msg of unreadMessages) {
+            await updateDoc(doc(db, 'messages', msg.id), {
+              read: true,
+            });
+          }
 
-        // Reset unread count in conversation document
-        const conversationRef = doc(db, 'conversations', conversationId);
-        await updateDoc(conversationRef, {
-          [`unreadCount.${user.uid}`]: 0,
-        });
+          // Reset unread count in conversation document
+          const conversationRef = doc(db, 'conversations', actualConversationId);
+          await updateDoc(conversationRef, {
+            [`unreadCount.${user.uid}`]: 0,
+          });
+        } catch (error) {
+          console.error('Error marking messages as read:', error);
+        }
       }
+    }, (error) => {
+      console.error('Error listening to messages:', error);
+      setError('Failed to load messages');
     });
 
     return () => unsubscribe();
-  }, [conversationId, user, navigate, toast]);
+  }, [actualConversationId, user]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -120,36 +186,53 @@ const Chat = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user || !otherUser || !conversationId) return;
+    if (!newMessage.trim() || !user || !otherUser || !actualConversationId) return;
+
+    const messageText = newMessage.trim();
+    setNewMessage(''); // Clear input immediately for better UX
 
     try {
       // Add message
       await addDoc(collection(db, 'messages'), {
-        conversationId,
+        conversationId: actualConversationId,
         senderId: user.uid,
         receiverId: otherUser.id,
-        text: newMessage.trim(),
+        text: messageText,
         read: false,
         createdAt: serverTimestamp(),
       });
 
       // Update conversation with last message and increment receiver's unread count
-      const conversationRef = doc(db, 'conversations', conversationId);
+      const conversationRef = doc(db, 'conversations', actualConversationId);
       const conversationSnap = await getDoc(conversationRef);
-      const currentUnreadCount = conversationSnap.data()?.unreadCount?.[otherUser.id] || 0;
+      
+      if (conversationSnap.exists()) {
+        const currentUnreadCount = conversationSnap.data()?.unreadCount?.[otherUser.id] || 0;
 
-      await updateDoc(conversationRef, {
-        lastMessage: newMessage.trim(),
-        lastMessageTime: serverTimestamp(),
-        [`unreadCount.${otherUser.id}`]: currentUnreadCount + 1,
-      });
-
-      setNewMessage('');
+        await updateDoc(conversationRef, {
+          lastMessage: messageText,
+          lastMessageTime: serverTimestamp(),
+          [`unreadCount.${otherUser.id}`]: currentUnreadCount + 1,
+        });
+      } else {
+        // Create conversation if it doesn't exist
+        await setDoc(conversationRef, {
+          participants: [user.uid, otherUser.id],
+          lastMessage: messageText,
+          lastMessageTime: serverTimestamp(),
+          unreadCount: {
+            [user.uid]: 0,
+            [otherUser.id]: 1,
+          },
+          createdAt: serverTimestamp(),
+        });
+      }
     } catch (error) {
       console.error('Error sending message:', error);
+      setNewMessage(messageText); // Restore message on error
       toast({
         title: "Error",
-        description: "Failed to send message",
+        description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
     }
@@ -160,6 +243,23 @@ const Chat = () => {
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
         <div className="w-16 h-16 rounded-full border-4 border-border border-t-primary animate-spin"></div>
         <p className="text-muted-foreground">Loading chat...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen px-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button
+          onClick={() => navigate('/messages')}
+          className="mt-4"
+        >
+          Go Back to Messages
+        </Button>
       </div>
     );
   }

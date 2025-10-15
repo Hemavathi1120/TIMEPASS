@@ -294,6 +294,15 @@ const Profile = () => {
     }
   };
 
+  const handleMessage = () => {
+    if (!user || !profileUserId || isOwnProfile) return;
+    
+    // Navigate to chat, will create conversation if doesn't exist
+    navigate('/chat/new', {
+      state: { userId: profileUserId }
+    });
+  };
+
   const handleFollowToggle = async () => {
     if (!user || !profileUserId || isOwnProfile) return;
 
@@ -656,7 +665,7 @@ const Profile = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={handleStartConversation}
+                        onClick={handleMessage}
                         className="hover:bg-secondary"
                       >
                         <MessageCircle className="w-4 h-4 mr-2" />
