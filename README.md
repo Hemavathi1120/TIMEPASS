@@ -36,6 +36,19 @@ npm i
 npm run dev
 ```
 
+## 🔧 Firebase Storage CORS Fix
+
+If you're experiencing CORS errors when uploading stories or images:
+
+1. **Quick Fix (Windows):** Run the automated script:
+   ```powershell
+   .\apply-cors-fix.ps1
+   ```
+
+2. **Manual Fix:** Follow the detailed guide in [FIREBASE_CORS_FIX.md](./FIREBASE_CORS_FIX.md)
+
+This will configure Firebase Storage to accept uploads from localhost and your deployed domain.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
