@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { collection, query, where, orderBy, onSnapshot, getDocs, doc, getDoc } from 'firebase/firestore';
+import { useEffect, useState, useMemo } from 'react';
+import { collection, query, where, orderBy, onSnapshot, getDocs, doc, getDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
@@ -20,14 +20,29 @@ interface Conversation {
   unreadCount: number;
 }
 
+interface UserCache {
+  [key: string]: {
+    username: string;
+    avatarUrl: string;
+  };
+}
+
 const Messages = () => {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [userCache, setUserCache] = useState<UserCache>({});
 
   useEffect(() => {
     if (!user) return;
+
+    // Set a timeout to show loading for minimum time, then show cached data if available
+    const minLoadingTime = setTimeout(() => {
+      if (conversations.length > 0) {
+        setLoading(false);
+      }
+    }, 300);
 
     const conversationsQuery = query(
       collection(db, 'conversations'),
@@ -36,23 +51,65 @@ const Messages = () => {
     );
 
     const unsubscribe = onSnapshot(conversationsQuery, async (snapshot) => {
-      const conversationsData = await Promise.all(
-        snapshot.docs.map(async (conversationDoc) => {
+      // Quick initial render with cached user data
+      const quickConversations = snapshot.docs.map((conversationDoc) => {
+        const data = conversationDoc.data();
+        const otherUserId = data.participants.find((id: string) => id !== user.uid);
+        
+        // Use cached user data if available
+        const cachedUser = userCache[otherUserId];
+        
+        return {
+          id: conversationDoc.id,
+          participants: data.participants,
+          lastMessage: data.lastMessage || '',
+          lastMessageTime: data.lastMessageTime,
+          otherUserId,
+          otherUserName: cachedUser?.username || 'Loading...',
+          otherUserAvatar: cachedUser?.avatarUrl || '',
+          unreadCount: data.unreadCount?.[user.uid] || 0, // Use stored unread count
+        };
+      });
+
+      // Show quick results immediately
+      setConversations(quickConversations);
+      setLoading(false);
+
+      // Fetch missing user data in the background
+      const missingUserIds = snapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          return data.participants.find((id: string) => id !== user.uid);
+        })
+        .filter(userId => !userCache[userId]);
+
+      if (missingUserIds.length > 0) {
+        // Batch fetch user data
+        const uniqueUserIds = [...new Set(missingUserIds)];
+        const userPromises = uniqueUserIds.map(userId =>
+          getDoc(doc(db, 'users', userId))
+        );
+
+        const userDocs = await Promise.all(userPromises);
+        const newUserCache = { ...userCache };
+        
+        userDocs.forEach((userDoc, index) => {
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            newUserCache[uniqueUserIds[index]] = {
+              username: userData.username || 'Unknown',
+              avatarUrl: userData.avatarUrl || '',
+            };
+          }
+        });
+
+        setUserCache(newUserCache);
+
+        // Update conversations with fetched user data
+        const updatedConversations = snapshot.docs.map((conversationDoc) => {
           const data = conversationDoc.data();
           const otherUserId = data.participants.find((id: string) => id !== user.uid);
-          
-          // Fetch other user's info
-          const userDoc = await getDoc(doc(db, 'users', otherUserId));
-          const userData = userDoc.data();
-
-          // Count unread messages
-          const messagesQuery = query(
-            collection(db, 'messages'),
-            where('conversationId', '==', conversationDoc.id),
-            where('receiverId', '==', user.uid),
-            where('read', '==', false)
-          );
-          const unreadSnapshot = await getDocs(messagesQuery);
+          const userData = newUserCache[otherUserId];
 
           return {
             id: conversationDoc.id,
@@ -62,21 +119,28 @@ const Messages = () => {
             otherUserId,
             otherUserName: userData?.username || 'Unknown',
             otherUserAvatar: userData?.avatarUrl || '',
-            unreadCount: unreadSnapshot.size,
+            unreadCount: data.unreadCount?.[user.uid] || 0,
           };
-        })
-      );
+        });
 
-      setConversations(conversationsData);
+        setConversations(updatedConversations);
+      }
+    }, (error) => {
+      console.error('Error loading conversations:', error);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(minLoadingTime);
+      unsubscribe();
+    };
   }, [user]);
 
-  const filteredConversations = conversations.filter((conv) =>
-    conv.otherUserName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredConversations = useMemo(() => {
+    return conversations.filter((conv) =>
+      conv.otherUserName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [conversations, searchTerm]);
 
   const getTimeAgo = (timestamp: any) => {
     if (!timestamp?.toDate) return '';
@@ -92,7 +156,7 @@ const Messages = () => {
     return `${Math.floor(diffInSeconds / 604800)}w`;
   };
 
-  if (loading) {
+  if (loading && conversations.length === 0) {
     return (
       <>
         <Navbar />
@@ -112,6 +176,7 @@ const Messages = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
           >
             <h1 className="text-3xl font-bold gradient-text mb-6">Messages</h1>
 
@@ -131,13 +196,18 @@ const Messages = () => {
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
                 className="text-center py-20 bg-card border border-border rounded-3xl shadow-lg"
               >
                 <div className="w-20 h-20 rounded-full bg-gradient-instagram/10 flex items-center justify-center mx-auto mb-6">
                   <MessageCircle className="w-10 h-10 text-primary" />
                 </div>
-                <p className="text-2xl font-semibold mb-2 text-muted-foreground">No messages yet</p>
-                <p className="text-muted-foreground">Start chatting with people you follow</p>
+                <p className="text-2xl font-semibold mb-2 text-muted-foreground">
+                  {searchTerm ? 'No conversations found' : 'No messages yet'}
+                </p>
+                <p className="text-muted-foreground">
+                  {searchTerm ? 'Try a different search term' : 'Start chatting with people you follow'}
+                </p>
               </motion.div>
             ) : (
               <div className="space-y-2">
@@ -146,32 +216,40 @@ const Messages = () => {
                     key={conversation.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
+                    transition={{ delay: Math.min(index * 0.03, 0.3), duration: 0.3 }}
                   >
                     <Link to={`/chat/${conversation.id}`}>
-                      <div className={`bg-card border border-border rounded-2xl p-4 hover:shadow-lg transition-all cursor-pointer ${
-                        conversation.unreadCount > 0 ? 'bg-primary/5' : ''
+                      <div className={`bg-card border border-border rounded-2xl p-4 hover:shadow-lg transition-all cursor-pointer hover:scale-[1.02] ${
+                        conversation.unreadCount > 0 ? 'bg-primary/5 border-primary/20' : ''
                       }`}>
                         <div className="flex items-center space-x-4">
                           {/* Avatar */}
-                          <div className="w-14 h-14 rounded-full bg-gradient-instagram flex items-center justify-center flex-shrink-0">
-                            {conversation.otherUserAvatar ? (
-                              <img
-                                src={conversation.otherUserAvatar}
-                                alt={conversation.otherUserName}
-                                className="w-full h-full rounded-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-white font-bold text-xl">
-                                {conversation.otherUserName[0]?.toUpperCase()}
-                              </span>
+                          <div className="relative">
+                            <div className="w-14 h-14 rounded-full bg-gradient-instagram flex items-center justify-center flex-shrink-0">
+                              {conversation.otherUserAvatar ? (
+                                <img
+                                  src={conversation.otherUserAvatar}
+                                  alt={conversation.otherUserName}
+                                  className="w-full h-full rounded-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <span className="text-white font-bold text-xl">
+                                  {conversation.otherUserName[0]?.toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            {conversation.unreadCount > 0 && (
+                              <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary rounded-full border-2 border-background"></div>
                             )}
                           </div>
 
                           {/* Content */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
-                              <p className="font-semibold truncate">
+                              <p className={`font-semibold truncate ${
+                                conversation.unreadCount > 0 ? 'text-foreground' : ''
+                              }`}>
                                 {conversation.otherUserName}
                               </p>
                               <p className="text-xs text-muted-foreground flex-shrink-0 ml-2">
@@ -187,7 +265,7 @@ const Messages = () => {
 
                           {/* Unread Badge */}
                           {conversation.unreadCount > 0 && (
-                            <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+                            <div className="w-7 h-7 bg-primary rounded-full flex items-center justify-center flex-shrink-0 animate-pulse">
                               <span className="text-white text-xs font-bold">
                                 {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
                               </span>

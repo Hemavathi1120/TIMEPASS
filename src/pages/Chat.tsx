@@ -90,14 +90,23 @@ const Chat = () => {
 
       setMessages(messagesData);
 
-      // Mark messages as read
+      // Mark messages as read and reset unread count
       const unreadMessages = messagesData.filter(
         (msg) => msg.receiverId === user.uid && !msg.read
       );
 
-      for (const msg of unreadMessages) {
-        await updateDoc(doc(db, 'messages', msg.id), {
-          read: true,
+      if (unreadMessages.length > 0) {
+        // Mark individual messages as read
+        for (const msg of unreadMessages) {
+          await updateDoc(doc(db, 'messages', msg.id), {
+            read: true,
+          });
+        }
+
+        // Reset unread count in conversation document
+        const conversationRef = doc(db, 'conversations', conversationId);
+        await updateDoc(conversationRef, {
+          [`unreadCount.${user.uid}`]: 0,
         });
       }
     });
@@ -124,15 +133,16 @@ const Chat = () => {
         createdAt: serverTimestamp(),
       });
 
-      // Update conversation
-      await setDoc(
-        doc(db, 'conversations', conversationId),
-        {
-          lastMessage: newMessage.trim(),
-          lastMessageTime: serverTimestamp(),
-        },
-        { merge: true }
-      );
+      // Update conversation with last message and increment receiver's unread count
+      const conversationRef = doc(db, 'conversations', conversationId);
+      const conversationSnap = await getDoc(conversationRef);
+      const currentUnreadCount = conversationSnap.data()?.unreadCount?.[otherUser.id] || 0;
+
+      await updateDoc(conversationRef, {
+        lastMessage: newMessage.trim(),
+        lastMessageTime: serverTimestamp(),
+        [`unreadCount.${otherUser.id}`]: currentUnreadCount + 1,
+      });
 
       setNewMessage('');
     } catch (error) {
