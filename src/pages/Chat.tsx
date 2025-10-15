@@ -137,8 +137,7 @@ const Chat = () => {
 
     const messagesQuery = query(
       collection(db, 'messages'),
-      where('conversationId', '==', actualConversationId),
-      orderBy('createdAt', 'asc')
+      where('conversationId', '==', actualConversationId)
     );
 
     const unsubscribe = onSnapshot(messagesQuery, async (snapshot) => {
@@ -147,7 +146,14 @@ const Chat = () => {
         ...doc.data(),
       })) as Message[];
 
-      setMessages(messagesData);
+      // Sort messages by createdAt on client side to avoid composite index
+      const sortedMessages = messagesData.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || 0;
+        const bTime = b.createdAt?.toMillis?.() || 0;
+        return aTime - bTime;
+      });
+
+      setMessages(sortedMessages);
 
       // Mark messages as read and reset unread count
       const unreadMessages = messagesData.filter(

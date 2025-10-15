@@ -307,24 +307,12 @@ export const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
     try {
       let reelsQuery;
       
-      if (searchTerm && searchTerm.trim()) {
-        // Search reels by caption or username
-        const sanitizedQuery = searchTerm.toLowerCase();
-        reelsQuery = firestoreQuery(
-          collection(db, 'posts'),
-          where('mediaType', '==', 'video'),
-          orderBy('createdAt', 'desc'),
-          limit(50)
-        );
-      } else {
-        // Fetch all reels
-        reelsQuery = firestoreQuery(
-          collection(db, 'posts'),
-          where('mediaType', '==', 'video'),
-          orderBy('createdAt', 'desc'),
-          limit(30)
-        );
-      }
+      // Fetch reels without orderBy to avoid composite index requirement
+      reelsQuery = firestoreQuery(
+        collection(db, 'posts'),
+        where('mediaType', '==', 'video'),
+        limit(searchTerm && searchTerm.trim() ? 50 : 30)
+      );
       
       const reelsSnapshot = await getDocs(reelsQuery);
       
@@ -363,15 +351,22 @@ export const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
         })
       );
       
+      // Sort by createdAt descending (client-side to avoid composite index)
+      const sortedReels = reelsWithUserData.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || 0;
+        const bTime = b.createdAt?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+
       // Filter by search term if provided
       if (searchTerm && searchTerm.trim()) {
-        const filtered = reelsWithUserData.filter(reel => 
+        const filtered = sortedReels.filter(reel => 
           reel.caption.toLowerCase().includes(searchTerm.toLowerCase()) ||
           reel.username.toLowerCase().includes(searchTerm.toLowerCase())
         );
         setReelsResults(filtered);
       } else {
-        setReelsResults(reelsWithUserData);
+        setReelsResults(sortedReels);
       }
     } catch (error) {
       console.error('Error fetching reels:', error);

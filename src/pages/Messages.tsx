@@ -46,13 +46,13 @@ const Messages = () => {
 
     const conversationsQuery = query(
       collection(db, 'conversations'),
-      where('participants', 'array-contains', user.uid),
-      orderBy('lastMessageTime', 'desc')
+      where('participants', 'array-contains', user.uid)
     );
 
     const unsubscribe = onSnapshot(conversationsQuery, async (snapshot) => {
-      // Quick initial render with cached user data
-      const quickConversations = snapshot.docs.map((conversationDoc) => {
+      // Quick initial render with cached user data - sort on client side
+      const quickConversations = snapshot.docs
+        .map((conversationDoc) => {
         const data = conversationDoc.data();
         const otherUserId = data.participants.find((id: string) => id !== user.uid);
         
@@ -69,6 +69,12 @@ const Messages = () => {
           otherUserAvatar: cachedUser?.avatarUrl || '',
           unreadCount: data.unreadCount?.[user.uid] || 0, // Use stored unread count
         };
+      })
+      .sort((a, b) => {
+        // Sort by lastMessageTime descending (most recent first)
+        const aTime = a.lastMessageTime?.toMillis?.() || 0;
+        const bTime = b.lastMessageTime?.toMillis?.() || 0;
+        return bTime - aTime;
       });
 
       // Show quick results immediately
@@ -106,22 +112,29 @@ const Messages = () => {
         setUserCache(newUserCache);
 
         // Update conversations with fetched user data
-        const updatedConversations = snapshot.docs.map((conversationDoc) => {
-          const data = conversationDoc.data();
-          const otherUserId = data.participants.find((id: string) => id !== user.uid);
-          const userData = newUserCache[otherUserId];
+        const updatedConversations = snapshot.docs
+          .map((conversationDoc) => {
+            const data = conversationDoc.data();
+            const otherUserId = data.participants.find((id: string) => id !== user.uid);
+            const userData = newUserCache[otherUserId];
 
-          return {
-            id: conversationDoc.id,
-            participants: data.participants,
-            lastMessage: data.lastMessage || '',
-            lastMessageTime: data.lastMessageTime,
-            otherUserId,
-            otherUserName: userData?.username || 'Unknown',
-            otherUserAvatar: userData?.avatarUrl || '',
-            unreadCount: data.unreadCount?.[user.uid] || 0,
-          };
-        });
+            return {
+              id: conversationDoc.id,
+              participants: data.participants,
+              lastMessage: data.lastMessage || '',
+              lastMessageTime: data.lastMessageTime,
+              otherUserId,
+              otherUserName: userData?.username || 'Unknown',
+              otherUserAvatar: userData?.avatarUrl || '',
+              unreadCount: data.unreadCount?.[user.uid] || 0,
+            };
+          })
+          .sort((a, b) => {
+            // Sort by lastMessageTime descending
+            const aTime = a.lastMessageTime?.toMillis?.() || 0;
+            const bTime = b.lastMessageTime?.toMillis?.() || 0;
+            return bTime - aTime;
+          });
 
         setConversations(updatedConversations);
       }
