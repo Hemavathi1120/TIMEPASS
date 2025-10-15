@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, MessageCircle, Heart, Share2 } from 'lucide-react';
 import { collection, doc, getDoc, addDoc, updateDoc, increment, query, where, getDocs } from 'firebase/firestore';
@@ -280,10 +281,11 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
   
   const currentStory = stories[currentIndex];
   
-  return (
+  // Render StoryViewer in a portal to ensure it's on top of everything
+  return createPortal(
     <AnimatePresence>
       <motion.div 
-        className="fixed inset-0 z-[100] bg-black overflow-hidden"
+        className="fixed inset-0 z-[9999] bg-black overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -580,6 +582,7 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
           )}
         </AnimatePresence>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
