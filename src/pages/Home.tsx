@@ -50,10 +50,10 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-background pt-16 pb-10">
       {/* Stories Bar - positioned at the top, directly under the navbar */}
-      <div className="sticky top-[56px] bg-background/95 backdrop-blur-md z-10 py-3 border-b border-border/50 shadow-sm">
+      <div className="sticky top-[56px] bg-background/95 backdrop-blur-md z-10 border-b border-border/50 shadow-sm">
         <StoriesBar />
       </div>
-      <div className="max-w-2xl mx-auto px-4 mt-4">
+      <div className="max-w-2xl mx-auto px-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

@@ -227,12 +227,12 @@ export const StoriesBar = () => {
   return (
     <>
       <motion.div 
-        className="max-w-2xl mx-auto px-4"
+        className="max-w-2xl mx-auto px-4 py-3"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
       >
-        <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-5 shadow-lg">
+        <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-4 shadow-lg">
           <div className="flex overflow-x-auto gap-5 hide-scrollbar">
             {/* Create Story Button - Enhanced Design */}
             {currentUser && (
