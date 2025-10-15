@@ -40,6 +40,7 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const progressInterval = useRef<number | null>(null);
+  const uiTimeoutRef = useRef<number | null>(null);
   const storyDuration = 5000; // 5 seconds per story
   const mediaRef = useRef<HTMLImageElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -88,10 +89,22 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
     // Lock body scroll while story is open
     document.body.style.overflow = 'hidden';
     
+    // Auto-hide UI after 3 seconds
+    setShowUI(true);
+    if (uiTimeoutRef.current) {
+      clearTimeout(uiTimeoutRef.current);
+    }
+    uiTimeoutRef.current = window.setTimeout(() => {
+      setShowUI(false);
+    }, 3000);
+    
     // Cleanup on unmount
     return () => {
       if (progressInterval.current) {
         clearInterval(progressInterval.current);
+      }
+      if (uiTimeoutRef.current) {
+        clearTimeout(uiTimeoutRef.current);
       }
       window.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
@@ -279,7 +292,26 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
   };
   
   const toggleUI = () => {
-    setShowUI(prev => !prev);
+    setShowUI(prev => {
+      const newState = !prev;
+      
+      // If showing UI, auto-hide after 3 seconds
+      if (newState) {
+        if (uiTimeoutRef.current) {
+          clearTimeout(uiTimeoutRef.current);
+        }
+        uiTimeoutRef.current = window.setTimeout(() => {
+          setShowUI(false);
+        }, 3000);
+      } else {
+        // Clear timeout if manually hiding
+        if (uiTimeoutRef.current) {
+          clearTimeout(uiTimeoutRef.current);
+        }
+      }
+      
+      return newState;
+    });
   };
   
   if (!stories.length || !user) return null;
@@ -405,178 +437,152 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
                 <div className="absolute inset-0 rounded-full bg-red-500/30 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-300" />
               </motion.button>
               
-              {/* Progress bars - Premium Enhanced */}
+              {/* Progress bars - Minimal & Clean */}
               <motion.div 
-                className="absolute top-5 left-5 right-5 flex gap-2 z-20"
-                initial={{ opacity: 0, y: -30, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -30, scale: 0.9 }}
-                transition={{ duration: 0.4, type: "spring", stiffness: 300 }}
+                className="absolute top-3 left-3 right-3 flex gap-1.5 z-20"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.8 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
               >
                 {stories.map((_, idx) => (
-                  <motion.div 
+                  <div 
                     key={idx} 
-                    className="h-[4px] bg-white/15 backdrop-blur-xl flex-1 rounded-full overflow-hidden shadow-xl border border-white/20 relative"
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: idx * 0.05 }}
+                    className="h-[2px] bg-white/20 flex-1 rounded-full overflow-hidden"
                   >
-                    {/* Background glow */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 via-pink-500/30 to-orange-500/30 blur-sm" />
-                    
                     <motion.div 
-                      className="relative h-full bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 shadow-[0_0_25px_rgba(236,72,153,0.9),0_0_40px_rgba(168,85,247,0.5)]"
+                      className="h-full bg-white"
                       initial={{ width: '0%' }}
                       animate={{ 
                         width: idx < currentIndex ? '100%' : 
                               idx === currentIndex ? `${progress}%` : '0%'
                       }}
                       transition={{ 
-                        duration: idx === currentIndex ? 0.1 : 0.3,
+                        duration: idx === currentIndex ? 0.1 : 0.2,
                         ease: "linear"
                       }}
-                    >
-                      {/* Inner shine effect */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
-                    </motion.div>
-                  </motion.div>
+                    />
+                  </div>
                 ))}
               </motion.div>
               
-              {/* User info - Ultra Enhanced */}
+              {/* User info - Minimal & Clean */}
               <motion.div 
-                className="absolute top-12 left-4 right-4 flex items-center gap-4 z-20 bg-gradient-to-br from-black/40 via-black/30 to-transparent backdrop-blur-xl p-3 rounded-3xl shadow-2xl border border-white/10"
-                initial={{ opacity: 0, y: -30, scale: 0.8 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -30, scale: 0.8 }}
-                transition={{ duration: 0.4, delay: 0.1, type: "spring", stiffness: 200 }}
+                className="absolute top-8 left-4 flex items-center gap-2.5 z-20 bg-black/30 backdrop-blur-md p-2 pr-3 rounded-full"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
               >
-                <div className="relative">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-purple-600 via-pink-600 to-orange-500 p-[3px] shadow-xl">
-                    <div className="bg-black rounded-full w-full h-full flex items-center justify-center overflow-hidden">
-                      {user.avatarUrl ? (
-                        <img 
-                          src={user.avatarUrl} 
-                          alt={user.username} 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-white font-bold text-xl">
-                          {user.username?.[0]?.toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {/* Live indicator pulse */}
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 via-pink-600 to-orange-500 p-[2px]">
+                  <div className="bg-black rounded-full w-full h-full flex items-center justify-center overflow-hidden">
+                    {user.avatarUrl ? (
+                      <img 
+                        src={user.avatarUrl} 
+                        alt={user.username} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-white font-bold text-sm">
+                        {user.username?.[0]?.toUpperCase()}
+                      </span>
+                    )}
                   </div>
                 </div>
                 
-                <div className="flex-1 min-w-0">
-                  <div className="text-white font-bold text-base drop-shadow-2xl truncate">{user.username}</div>
-                  <div className="text-white/90 text-xs flex items-center gap-2.5 mt-0.5">
-                    <span className="font-medium">{new Date(currentStory.createdAt?.toDate()).toLocaleTimeString([], {
+                <div className="flex flex-col">
+                  <div className="text-white font-semibold text-sm drop-shadow-lg">{user.username}</div>
+                  <div className="text-white/70 text-xs">
+                    {new Date(currentStory.createdAt?.toDate()).toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit'
-                    })}</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400" />
-                    <span className="font-medium bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                      {currentIndex + 1} of {stories.length}
-                    </span>
+                    })}
                   </div>
                 </div>
                 
-                {/* View count badge - Ultra Enhanced */}
+                {/* View count badge - Minimal */}
                 {viewCount > 0 && userId === currentUser?.uid && (
-                  <motion.div 
-                    className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 backdrop-blur-xl text-white text-xs px-4 py-2 rounded-full flex items-center gap-2 shadow-xl border border-white/20"
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ delay: 0.3, type: "spring", stiffness: 300 }}
-                  >
-                    <div className="w-2 h-2 bg-gradient-to-br from-green-400 to-emerald-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />
-                    <span className="font-bold">{viewCount}</span>
-                    <span className="font-medium opacity-90">{viewCount === 1 ? 'view' : 'views'}</span>
-                  </motion.div>
+                  <div className="ml-2 text-white/80 text-xs flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full" />
+                    <span>{viewCount}</span>
+                  </div>
                 )}
               </motion.div>
               
-              {/* Caption overlay - Ultra Enhanced */}
+              {/* Caption overlay - Minimal */}
               {currentStory.caption && (
                 <motion.div 
-                  className="absolute bottom-32 left-4 right-4 bg-gradient-to-br from-purple-900/40 via-black/60 to-pink-900/40 backdrop-blur-2xl p-5 rounded-3xl shadow-2xl border border-white/20"
-                  initial={{ opacity: 0, y: 30, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 30, scale: 0.9 }}
-                  transition={{ duration: 0.4, delay: 0.2, type: "spring" }}
+                  className="absolute bottom-24 left-4 right-4 bg-black/40 backdrop-blur-md p-3 rounded-2xl"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-50" />
-                  <p className="relative text-white font-semibold text-base leading-relaxed drop-shadow-2xl">{currentStory.caption}</p>
+                  <p className="text-white text-sm leading-relaxed drop-shadow-lg">{currentStory.caption}</p>
                 </motion.div>
               )}
               
-              {/* Navigation arrows (visible on desktop) - Ultra Enhanced */}
+              {/* Navigation arrows (visible on desktop) - Minimal */}
               {!isMobile && (
                 <>
                   <motion.div 
-                    className="absolute top-1/2 left-6 transform -translate-y-1/2 z-30"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3 }}
-                    whileHover={{ scale: 1.1, x: -5 }}
+                    className="absolute top-1/2 left-4 transform -translate-y-1/2 z-30"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.5 }}
+                    exit={{ opacity: 0 }}
+                    whileHover={{ opacity: 1, scale: 1.1 }}
+                    transition={{ duration: 0.2 }}
                   >
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="bg-gradient-to-br from-black/60 to-black/40 backdrop-blur-xl text-white hover:from-purple-500/50 hover:to-pink-500/50 rounded-full h-14 w-14 shadow-2xl border border-white/20 hover:border-white/40 transition-all duration-300"
+                      className="bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 rounded-full h-10 w-10"
                       onClick={(e) => {
                         e.stopPropagation();
                         goToPreviousStory();
                       }}
                       aria-label="Previous story"
                     >
-                      <ChevronLeft className="h-7 w-7 drop-shadow-lg" />
+                      <ChevronLeft className="h-6 w-6" />
                     </Button>
                   </motion.div>
                   <motion.div 
-                    className="absolute top-1/2 right-6 transform -translate-y-1/2 z-30"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    transition={{ duration: 0.3 }}
-                    whileHover={{ scale: 1.1, x: 5 }}
+                    className="absolute top-1/2 right-4 transform -translate-y-1/2 z-30"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.5 }}
+                    exit={{ opacity: 0 }}
+                    whileHover={{ opacity: 1, scale: 1.1 }}
+                    transition={{ duration: 0.2 }}
                   >
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="bg-gradient-to-br from-black/60 to-black/40 backdrop-blur-xl text-white hover:from-purple-500/50 hover:to-pink-500/50 rounded-full h-14 w-14 shadow-2xl border border-white/20 hover:border-white/40 transition-all duration-300"
+                      className="bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 rounded-full h-10 w-10"
                       onClick={(e) => {
                         e.stopPropagation();
                         goToNextStory();
                       }}
                       aria-label="Next story"
                     >
-                      <ChevronRight className="h-7 w-7 drop-shadow-lg" />
+                      <ChevronRight className="h-6 w-6" />
                     </Button>
                   </motion.div>
                 </>
               )}
               
-              {/* Interaction bar - Ultra Enhanced */}
+              {/* Interaction bar - Minimal */}
               <motion.div 
-                className="absolute bottom-6 left-4 right-4 flex items-center gap-3 bg-gradient-to-br from-black/40 via-black/30 to-transparent backdrop-blur-2xl p-3 rounded-3xl shadow-2xl border border-white/20"
+                className="absolute bottom-4 left-4 right-4 flex items-center gap-2 bg-black/30 backdrop-blur-md p-2 rounded-2xl"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.2 }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <form onSubmit={handleSendComment} className="flex-1 flex gap-2">
                   <Input 
                     placeholder="Send message..." 
-                    className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border-white/20 text-white placeholder:text-white/50 rounded-2xl h-12 px-5 focus-visible:ring-purple-500/50 focus-visible:border-purple-500/50 transition-all"
+                    className="bg-white/10 backdrop-blur-sm border-white/20 text-white placeholder:text-white/50 rounded-xl h-10 px-4 text-sm focus-visible:ring-1 focus-visible:ring-white/30"
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                     onClick={(e) => {
@@ -590,53 +596,49 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
                     size="icon"
                     variant="ghost"
                     disabled={sending || !comment.trim()}
-                    className="bg-gradient-to-br from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded-2xl h-12 w-12 shadow-lg hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-white/20 hover:bg-white/30 rounded-xl h-10 w-10 disabled:opacity-50"
                     aria-label="Send comment"
                   >
-                    <MessageCircle className="h-5 w-5 text-white" />
+                    <MessageCircle className="h-4 w-4 text-white" />
                   </Button>
                 </form>
                 
-                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="bg-gradient-to-br from-red-500/30 to-pink-500/30 backdrop-blur-xl text-white hover:from-red-500/50 hover:to-pink-500/50 rounded-2xl h-12 w-12 border border-white/20 shadow-lg hover:shadow-red-500/50 transition-all"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLikeStory();
-                    }}
-                    aria-label="Like story"
-                  >
-                    <Heart className="h-5 w-5 fill-current" />
-                  </Button>
-                </motion.div>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="bg-white/20 hover:bg-white/30 text-white rounded-xl h-10 w-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLikeStory();
+                  }}
+                  aria-label="Like story"
+                >
+                  <Heart className="h-4 w-4" />
+                </Button>
                 
-                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="bg-gradient-to-br from-blue-500/30 to-cyan-500/30 backdrop-blur-xl text-white hover:from-blue-500/50 hover:to-cyan-500/50 rounded-2xl h-12 w-12 border border-white/20 shadow-lg hover:shadow-blue-500/50 transition-all"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (navigator.share) {
-                        navigator.share({
-                          title: `${user.username}'s story on TIMEPASS`,
-                          url: window.location.origin + '/stories/' + currentStory.id
-                        });
-                      } else {
-                        navigator.clipboard.writeText(window.location.origin + '/stories/' + currentStory.id);
-                        toast({
-                          title: "Link copied!",
-                          description: "Story link copied to clipboard",
-                        });
-                      }
-                    }}
-                    aria-label="Share story"
-                  >
-                    <Share2 className="h-5 w-5" />
-                  </Button>
-                </motion.div>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="bg-white/20 hover:bg-white/30 text-white rounded-xl h-10 w-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (navigator.share) {
+                      navigator.share({
+                        title: `${user.username}'s story on TIMEPASS`,
+                        url: window.location.origin + '/stories/' + currentStory.id
+                      });
+                    } else {
+                      navigator.clipboard.writeText(window.location.origin + '/stories/' + currentStory.id);
+                      toast({
+                        title: "Link copied!",
+                        description: "Story link copied to clipboard",
+                      });
+                    }
+                  }}
+                  aria-label="Share story"
+                >
+                  <Share2 className="h-4 w-4" />
+                </Button>
               </motion.div>
             </>
           )}
