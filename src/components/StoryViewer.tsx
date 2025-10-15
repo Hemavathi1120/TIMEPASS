@@ -35,6 +35,7 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
   const [sending, setSending] = useState(false);
   const [showUI, setShowUI] = useState(true);
   const [viewCount, setViewCount] = useState(0);
+  const [showLikeAnimation, setShowLikeAnimation] = useState(false);
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -195,6 +196,10 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
     
     const currentStory = stories[currentIndex];
     
+    // Show like animation
+    setShowLikeAnimation(true);
+    setTimeout(() => setShowLikeAnimation(false), 1000);
+    
     try {
       // Add like to story
       await addDoc(collection(db, 'stories', currentStory.id, 'likes'), {
@@ -285,33 +290,58 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
   return createPortal(
     <AnimatePresence>
       <motion.div 
-        className="fixed inset-0 z-[9999] bg-black overflow-hidden"
+        className="fixed inset-0 z-[9999] overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
+        transition={{ duration: 0.4, ease: "easeInOut" }}
         ref={viewerRef}
       >
-        {/* Animated background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-pink-900/20 animate-gradient-shift" />
+        {/* Enhanced animated background with multiple layers */}
+        <div className="absolute inset-0 bg-black" />
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-black via-50% to-pink-900/30 animate-gradient-shift" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-orange-900/20 via-transparent to-blue-900/20 opacity-50" />
+        
+        {/* Ambient light effects with multiple sources */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-gradient-radial from-purple-500/20 via-transparent to-transparent blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-gradient-radial from-pink-500/15 via-transparent to-transparent blur-3xl animate-float" />
+        <div className="absolute top-1/2 left-0 w-[500px] h-[500px] bg-gradient-radial from-orange-500/10 via-transparent to-transparent blur-3xl" style={{ animation: 'float 8s ease-in-out infinite reverse' }} />
         
         {/* Story content with enhanced animations */}
         <motion.div 
-          className="w-full h-full flex items-center justify-center relative"
+          className="w-full h-full flex items-center justify-center relative px-4 md:px-0"
           key={currentStory.id}
-          initial={{ opacity: 0, scale: 0.85, rotateY: 90 }}
+          initial={{ opacity: 0, scale: 0.9, rotateY: 90 }}
           animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-          exit={{ opacity: 0, scale: 0.85, rotateY: -90 }}
-          transition={{ duration: 0.3 }}
+          exit={{ opacity: 0, scale: 0.9, rotateY: -90 }}
+          transition={{ duration: 0.4, type: "spring", stiffness: 300, damping: 30 }}
           onClick={toggleUI}
         >
-          {/* Story media */}
-          <div className="w-full h-full flex items-center justify-center">
+          {/* Story media container with enhanced styling */}
+          <div className="relative w-full h-full max-w-lg flex items-center justify-center">
+            {/* Image shadow/glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 blur-3xl opacity-50" />
+            
+            {/* Floating heart animation on double-tap */}
+            <AnimatePresence>
+              {showLikeAnimation && (
+                <motion.div
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-50"
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 1.5, opacity: 0 }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                >
+                  <Heart className="w-32 h-32 text-white fill-white drop-shadow-2xl animate-heartbeat" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+            
             <img 
               ref={mediaRef}
               src={currentStory.mediaUrl} 
               alt="Story" 
-              className="w-full h-full object-contain"
+              className="relative w-full h-full object-contain rounded-2xl shadow-2xl"
               draggable={false}
               onError={(e) => {
                 e.currentTarget.src = 'https://via.placeholder.com/600x800?text=Media+Not+Available';
@@ -375,18 +405,27 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
                 <div className="absolute inset-0 rounded-full bg-red-500/30 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-300" />
               </motion.button>
               
-              {/* Progress bars - Ultra Enhanced */}
+              {/* Progress bars - Premium Enhanced */}
               <motion.div 
-                className="absolute top-4 left-4 right-4 flex gap-2 z-20"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
+                className="absolute top-5 left-5 right-5 flex gap-2 z-20"
+                initial={{ opacity: 0, y: -30, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -30, scale: 0.9 }}
+                transition={{ duration: 0.4, type: "spring", stiffness: 300 }}
               >
                 {stories.map((_, idx) => (
-                  <div key={idx} className="h-1 bg-white/10 backdrop-blur-lg flex-1 rounded-full overflow-hidden shadow-lg border border-white/10">
+                  <motion.div 
+                    key={idx} 
+                    className="h-[4px] bg-white/15 backdrop-blur-xl flex-1 rounded-full overflow-hidden shadow-xl border border-white/20 relative"
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: idx * 0.05 }}
+                  >
+                    {/* Background glow */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 via-pink-500/30 to-orange-500/30 blur-sm" />
+                    
                     <motion.div 
-                      className="h-full bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 shadow-[0_0_20px_rgba(236,72,153,0.8)]"
+                      className="relative h-full bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 shadow-[0_0_25px_rgba(236,72,153,0.9),0_0_40px_rgba(168,85,247,0.5)]"
                       initial={{ width: '0%' }}
                       animate={{ 
                         width: idx < currentIndex ? '100%' : 
@@ -396,8 +435,11 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
                         duration: idx === currentIndex ? 0.1 : 0.3,
                         ease: "linear"
                       }}
-                    />
-                  </div>
+                    >
+                      {/* Inner shine effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
+                    </motion.div>
+                  </motion.div>
                 ))}
               </motion.div>
               

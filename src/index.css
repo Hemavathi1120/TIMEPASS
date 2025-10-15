@@ -265,4 +265,40 @@ All colors MUST be HSL.
   .animate-scale-in {
     animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
+  
+  /* Radial gradient utility */
+  .bg-gradient-radial {
+    background-image: radial-gradient(circle, var(--tw-gradient-stops));
+  }
+  
+  /* Floating animation for ambient effects */
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      transform: translateY(-20px) scale(1.05);
+    }
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  /* Heartbeat animation for like effects */
+  @keyframes heartbeat {
+    0%, 100% {
+      transform: scale(1);
+    }
+    10%, 30% {
+      transform: scale(1.2);
+    }
+    20%, 40% {
+      transform: scale(1.1);
+    }
+  }
+  
+  .animate-heartbeat {
+    animation: heartbeat 1s ease-in-out;
+  }
 }
