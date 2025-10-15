@@ -5,9 +5,10 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { Grid, Edit, Upload, UserPlus, UserMinus, Settings, LogOut, Moon, Sun, MessageCircle } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -130,61 +131,162 @@ const Profile = () => {
       return;
     }
 
+    // Create a local preview immediately
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setPreviewUrl(e.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+    
     setUploading(true);
     try {
+      // For development, use Base64 data URL directly to avoid CORS issues
+      // In production, this would be replaced with actual Firebase Storage upload
+      
+      // Create a base64 data URL from the file
+      const reader = new FileReader();
+      const dataUrlPromise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      
+      // Get the data URL
+      const dataUrl = await dataUrlPromise;
+      
+      // For development purposes, store the base64 URL directly
+      console.log("Using data URL for image instead of Firebase Storage");
+      setEditAvatarUrl(dataUrl);
+      
+      // In a production environment with proper CORS settings, 
+      // you would use the Firebase Storage upload code:
+      /*
+      // Compress the image before uploading
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 800,
+        useWebWorker: true
+      };
+      
+      console.log("Compressing image...");
+      let fileToUpload = file;
+      
+      try {
+        const compressedFile = await imageCompression(file, options);
+        console.log("Original file size:", file.size / 1024 / 1024, "MB");
+        console.log("Compressed file size:", compressedFile.size / 1024 / 1024, "MB");
+        fileToUpload = compressedFile;
+      } catch (compressError) {
+        console.error("Image compression error:", compressError);
+        // Continue with original file if compression fails
+      }
+      
+      // Generate a unique filename
       const fileExtension = file.name.split('.').pop();
       const fileName = `${user.uid}_${Date.now()}.${fileExtension}`;
       const storageRef = ref(storage, `avatars/${fileName}`);
 
-      await uploadBytes(storageRef, file);
+      // Upload the file
+      console.log("Uploading to Firebase Storage...");
+      const uploadTask = await uploadBytes(storageRef, fileToUpload);
+      console.log("Upload complete:", uploadTask);
+      
+      // Get the download URL
       const downloadURL = await getDownloadURL(storageRef);
+      console.log("Download URL received:", downloadURL);
 
+      // Update state with the download URL
       setEditAvatarUrl(downloadURL);
-      setPreviewUrl(downloadURL);
+      */
 
       toast({
         title: "Image uploaded!",
         description: "Your profile picture has been uploaded successfully.",
       });
     } catch (error: any) {
+      console.error("Upload error:", error);
       toast({
         title: "Upload failed",
-        description: error.message,
+        description: error.message || "There was an error uploading your image. Please try again.",
         variant: "destructive",
       });
+      // Reset preview if upload failed
+      setPreviewUrl(profile?.avatarUrl || null);
     } finally {
       setUploading(false);
+      
+      // Reset the file input to allow selecting the same file again if needed
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
   const handleSaveProfile = async () => {
     if (!user) return;
+    
+    // Validate username
+    const trimmedUsername = editUsername.trim();
+    if (!trimmedUsername) {
+      toast({
+        title: "Invalid username",
+        description: "Please enter a valid username",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setSaving(true);
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        username: editUsername.trim(),
+      // Check if the avatar URL is a data URL (starts with "data:")
+      let avatarUrl = editAvatarUrl;
+      const isDataUrl = editAvatarUrl.startsWith('data:');
+      
+      // In a real production app, we would upload the data URL to Firebase Storage here
+      // But for development with CORS issues, we'll use the data URL directly
+      if (isDataUrl) {
+        console.log("Using data URL for avatar");
+        // For larger apps, storing data URLs in Firestore may exceed document size limits
+        // Consider adding compression or alternative storage solutions for production
+      }
+      
+      console.log("Updating profile with:", {
+        username: trimmedUsername,
         bio: editBio.trim(),
-        avatarUrl: editAvatarUrl.trim(),
+        avatarUrl: isDataUrl ? "data:URL (truncated)" : avatarUrl
       });
-
-      setProfile({
-        ...profile!,
-        username: editUsername.trim(),
+      
+      // Update the user document in Firestore
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        username: trimmedUsername,
         bio: editBio.trim(),
-        avatarUrl: editAvatarUrl.trim(),
+        avatarUrl: avatarUrl,
+        updatedAt: new Date()
       });
-
-      toast({
-        title: "Profile updated!",
-        description: "Your profile has been updated successfully.",
-      });
-
-      setEditDialogOpen(false);
+      
+      // Refresh profile data from Firestore to ensure consistency
+      const updatedDoc = await getDoc(userRef);
+      if (updatedDoc.exists()) {
+        const updatedProfile = updatedDoc.data() as UserProfile;
+        setProfile(updatedProfile);
+        
+        toast({
+          title: "Profile updated!",
+          description: "Your profile has been updated successfully.",
+        });
+        
+        setEditDialogOpen(false);
+      } else {
+        throw new Error("Failed to retrieve updated profile");
+      }
     } catch (error: any) {
+      console.error("Profile update error:", error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Update failed",
+        description: error.message || "There was an error updating your profile. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -375,18 +477,32 @@ const Profile = () => {
         >
           {/* Profile Header */}
           <div className="flex items-start space-x-8 mb-8 bg-card border border-border rounded-3xl p-8 shadow-lg">
-            <div className="w-32 h-32 rounded-full bg-gradient-instagram flex items-center justify-center flex-shrink-0 shadow-xl">
+            <div className="w-32 h-32 rounded-full bg-gradient-instagram flex items-center justify-center flex-shrink-0 shadow-xl relative">
               {profile?.avatarUrl ? (
                 <img
                   src={profile.avatarUrl}
                   alt={profile.username}
                   className="w-full h-full rounded-full object-cover"
+                  onError={(e) => {
+                    console.log("Profile image failed to load:", profile.avatarUrl);
+                    // Add error class to hide the image
+                    e.currentTarget.classList.add('error');
+                    // Show the fallback
+                    const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback');
+                    if (fallback) {
+                      (fallback as HTMLElement).style.opacity = '1';
+                    }
+                  }}
                 />
-              ) : (
-                <span className="text-5xl text-white font-bold">
-                  {profile?.username?.[0]?.toUpperCase()}
-                </span>
-              )}
+              ) : null}
+              <div 
+                className="avatar-fallback text-5xl"
+                style={{
+                  opacity: profile?.avatarUrl ? 0 : 1
+                }}
+              >
+                {profile?.username?.[0]?.toUpperCase() || '?'}
+              </div>
             </div>
 
             <div className="flex-1">
@@ -408,24 +524,41 @@ const Profile = () => {
                   <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                       <DialogTitle className="text-2xl font-bold gradient-text">Edit Profile</DialogTitle>
+                      <DialogDescription id="dialog-description">
+                        Update your profile information and upload a new profile picture
+                      </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       {/* Profile Picture Preview & Upload */}
                       <div className="space-y-2">
                         <Label>Profile Picture</Label>
                         <div className="flex items-center space-x-4">
-                          <div className="w-20 h-20 rounded-full bg-gradient-instagram flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          <div className="w-20 h-20 rounded-full bg-gradient-instagram flex items-center justify-center flex-shrink-0 overflow-hidden relative">
                             {previewUrl ? (
                               <img
                                 src={previewUrl}
                                 alt="Preview"
-                                className="w-full h-full object-cover"
+                                className="w-full h-full rounded-full object-cover"
+                                onError={(e) => {
+                                  console.log("Image preview failed to load:", previewUrl);
+                                  // Add error class to hide the image
+                                  e.currentTarget.classList.add('error');
+                                  // Show the fallback
+                                  const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback');
+                                  if (fallback) {
+                                    (fallback as HTMLElement).style.opacity = '1';
+                                  }
+                                }}
                               />
-                            ) : (
-                              <span className="text-2xl text-white font-bold">
-                                {editUsername?.[0]?.toUpperCase()}
-                              </span>
-                            )}
+                            ) : null}
+                            <div 
+                              className="avatar-fallback text-2xl"
+                              style={{
+                                opacity: previewUrl ? 0 : 1
+                              }}
+                            >
+                              {editUsername?.[0]?.toUpperCase() || '?'}
+                            </div>
                           </div>
                           <div className="flex-1 space-y-2">
                             <input

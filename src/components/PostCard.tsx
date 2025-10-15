@@ -1,12 +1,20 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc, updateDoc, increment, collection, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, addDoc, query, where, getDocs, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, Send } from 'lucide-react';
+import { Heart, MessageCircle, Send, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { CommentSection } from '@/components/CommentSection';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Post {
   id: string;
@@ -28,6 +36,8 @@ export const PostCard = ({ post }: { post: Post }) => {
   const [liked, setLiked] = useState(false);
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [isAddingStory, setIsAddingStory] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -110,6 +120,52 @@ export const PostCard = ({ post }: { post: Post }) => {
       await handleLike();
     }
   };
+  
+  const handleAddStory = async () => {
+    if (!user) return;
+    
+    setIsAddingStory(true);
+    try {
+      // Add the post as a story to the user's profile
+      const storyRef = await addDoc(collection(db, 'stories'), {
+        userId: user.uid,
+        mediaUrl: post.media[0],
+        caption: post.caption || '',
+        createdAt: serverTimestamp(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Expires in 24 hours
+        originalPostId: post.id,
+        authorId: post.authorId // Original post author ID
+      });
+      
+      // If this isn't the user's own post, create a notification for the original post author
+      if (post.authorId !== user.uid) {
+        await addDoc(collection(db, 'notifications'), {
+          type: 'story_share',
+          toUserId: post.authorId,
+          fromUserId: user.uid,
+          postId: post.id,
+          storyId: storyRef.id,
+          read: false,
+          createdAt: new Date()
+        });
+      }
+      
+      toast({
+        title: "Story added!",
+        description: "This post has been added to your stories.",
+      });
+      
+      setShowShareDialog(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add story",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingStory(false);
+    }
+  };
 
   return (
     <motion.div
@@ -182,10 +238,11 @@ export const PostCard = ({ post }: { post: Post }) => {
           </Button>
           <Button 
             variant="ghost" 
-            size="icon" 
+            size="icon"
+            onClick={() => setShowShareDialog(true)}
             className="hover:bg-transparent hover:scale-110 transition-transform"
           >
-            <Send className="w-7 h-7 hover:text-muted-foreground" />
+            <Share2 className="w-7 h-7 hover:text-muted-foreground" />
           </Button>
         </div>
 
@@ -210,6 +267,64 @@ export const PostCard = ({ post }: { post: Post }) => {
 
       {/* Comment Section */}
       <CommentSection postId={post.id} isOpen={showComments} />
+      
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Post</DialogTitle>
+            <DialogDescription>
+              Add this post to your stories for 24 hours
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-4">
+            <div className="w-40 h-40 overflow-hidden rounded-lg border">
+              <img 
+                src={post.media[0]} 
+                alt="Post preview" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row sm:justify-between gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({
+                    title: `${author?.username}'s post on TIMEPASS`,
+                    text: post.caption || 'Check out this post on TIMEPASS!',
+                    url: window.location.origin + '/post/' + post.id
+                  }).catch((error) => {
+                    toast({
+                      title: "Error",
+                      description: "Failed to share post",
+                      variant: "destructive",
+                    });
+                    console.error('Error sharing:', error);
+                  });
+                } else {
+                  // Fallback for browsers that don't support Web Share API
+                  navigator.clipboard.writeText(window.location.origin + '/post/' + post.id);
+                  toast({
+                    title: "Link copied!",
+                    description: "Post link copied to clipboard",
+                  });
+                }
+              }}
+            >
+              Share Link
+            </Button>
+            <Button 
+              onClick={handleAddStory} 
+              disabled={isAddingStory}
+              className="bg-gradient-instagram hover:bg-gradient-instagram/90"
+            >
+              {isAddingStory ? "Adding..." : "Add to My Story"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };

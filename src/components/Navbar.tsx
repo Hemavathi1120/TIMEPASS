@@ -79,14 +79,16 @@ export const Navbar = () => {
               </Link>
             </div>
             {user && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSearchOpen(true)}
-                className="hover:bg-secondary"
-              >
-                <Search className="w-5 h-5" />
-              </Button>
+              <Link to="/messages">
+                <Button variant="ghost" size="icon" className="hover:bg-secondary relative">
+                  <MessageCircle className="w-5 h-5" />
+                  {unreadMessages > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-xs rounded-full flex items-center justify-center font-bold">
+                      {unreadMessages > 9 ? '9+' : unreadMessages}
+                    </span>
+                  )}
+                </Button>
+              </Link>
             )}
           </div>
         </div>
@@ -106,16 +108,14 @@ export const Navbar = () => {
                   <Home className="w-6 h-6" />
                 </Button>
               </Link>
-              <Link to="/messages">
-                <Button variant="ghost" size="icon" className="hover:bg-secondary relative">
-                  <MessageCircle className="w-6 h-6" />
-                  {unreadMessages > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-xs rounded-full flex items-center justify-center font-bold">
-                      {unreadMessages > 9 ? '9+' : unreadMessages}
-                    </span>
-                  )}
-                </Button>
-              </Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSearchOpen(true)}
+                className="hover:bg-secondary"
+              >
+                <Search className="w-6 h-6" />
+              </Button>
               <Link to="/create">
                 <Button variant="ghost" size="icon" className="hover:bg-secondary">
                   <PlusSquare className="w-6 h-6" />

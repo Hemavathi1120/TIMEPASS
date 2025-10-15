@@ -124,6 +124,9 @@ export const PostManagement = ({ post, onPostUpdated, onPostDeleted, isOwnPost =
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Post</DialogTitle>
+            <DialogDescription id="edit-post-description">
+              Update your post's caption
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

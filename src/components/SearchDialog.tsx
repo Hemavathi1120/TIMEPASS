@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { collection, query as firestoreQuery, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Search, User as UserIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -90,6 +90,9 @@ export const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl gradient-text">Search Users</DialogTitle>
+          <DialogDescription id="search-dialog-description">
+            Find and connect with other users on TIMEPASS
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">

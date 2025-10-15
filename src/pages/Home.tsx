@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PostCard } from '@/components/PostCard';
+import { StoriesBar } from '@/components/StoriesBar';
 import { motion } from 'framer-motion';
 import { Camera } from 'lucide-react';
 
@@ -47,8 +48,12 @@ const Home = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-20 pb-10">
-      <div className="max-w-2xl mx-auto px-4">
+    <div className="min-h-screen bg-background pt-16 pb-10">
+      {/* Stories Bar - positioned at the top, directly under the navbar */}
+      <div className="sticky top-[56px] bg-background/80 backdrop-blur-sm z-10 pb-2 pt-3 border-b border-border shadow-sm">
+        <StoriesBar />
+      </div>
+      <div className="max-w-2xl mx-auto px-4 mt-3">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
