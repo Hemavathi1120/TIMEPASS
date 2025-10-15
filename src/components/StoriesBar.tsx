@@ -342,6 +342,7 @@ export const StoriesBar = () => {
           stories={stories}
           userId={selectedUserId!}
           onClose={() => setShowStoryViewer(false)}
+          onStoryDeleted={handleRefreshStories}
         />
       )}
       

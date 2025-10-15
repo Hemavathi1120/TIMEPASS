@@ -1,14 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, MessageCircle, Heart, Share2 } from 'lucide-react';
-import { collection, doc, getDoc, addDoc, updateDoc, increment, query, where, getDocs } from 'firebase/firestore';
+import { X, ChevronLeft, ChevronRight, MessageCircle, Heart, Share2, Trash2 } from 'lucide-react';
+import { collection, doc, getDoc, addDoc, updateDoc, increment, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { ref, deleteObject } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Story {
   id: string;
@@ -24,9 +35,10 @@ interface StoryViewerProps {
   stories: Story[];
   userId: string;
   onClose: () => void;
+  onStoryDeleted?: () => void;
 }
 
-export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
+export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryViewerProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -36,6 +48,8 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
   const [showUI, setShowUI] = useState(true);
   const [viewCount, setViewCount] = useState(0);
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -201,6 +215,63 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
     } else {
       // If we're at the last story, close the viewer
       onClose();
+    }
+  };
+  
+  const handleDeleteStory = async () => {
+    if (!currentUser || userId !== currentUser.uid) return;
+    
+    const currentStory = stories[currentIndex];
+    setDeleting(true);
+    
+    try {
+      // Delete the story document from Firestore
+      await deleteDoc(doc(db, 'stories', currentStory.id));
+      
+      // Try to delete the media from Storage
+      try {
+        // Extract the path from the mediaUrl
+        const mediaPath = currentStory.mediaUrl.split('/o/')[1]?.split('?')[0];
+        if (mediaPath) {
+          const decodedPath = decodeURIComponent(mediaPath);
+          const storageRef = ref(storage, decodedPath);
+          await deleteObject(storageRef);
+        }
+      } catch (storageError) {
+        console.warn('Could not delete media from storage:', storageError);
+        // Continue even if storage deletion fails
+      }
+      
+      toast({
+        title: "Story deleted",
+        description: "Your story has been removed successfully",
+      });
+      
+      // Notify parent component to refresh stories
+      if (onStoryDeleted) {
+        onStoryDeleted();
+      }
+      
+      // Navigate to next story or close if no more stories
+      if (stories.length === 1) {
+        // If this was the only story, close the viewer
+        onClose();
+      } else if (currentIndex === stories.length - 1) {
+        // If deleting the last story, go to previous
+        setCurrentIndex(currentIndex - 1);
+      }
+      // If not the last story, currentIndex stays the same and will show next story
+      
+      setShowDeleteDialog(false);
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete story. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
     }
   };
   
@@ -421,6 +492,27 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
         <AnimatePresence>
           {showUI && (
             <>
+              {/* Delete button - Only visible for own stories */}
+              {userId === currentUser?.uid && (
+                <motion.button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDeleteDialog(true);
+                  }}
+                  className="absolute top-6 right-20 z-20 text-white p-3 rounded-full bg-gradient-to-br from-red-600/40 to-orange-600/40 backdrop-blur-xl hover:from-red-600/60 hover:to-orange-600/60 transition-all duration-300 shadow-2xl hover:shadow-red-600/50 border border-white/20 group"
+                  initial={{ opacity: 0, scale: 0, rotate: -180 }}
+                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                  exit={{ opacity: 0, scale: 0, rotate: 180 }}
+                  transition={{ duration: 0.4, type: "spring", stiffness: 300, delay: 0.1 }}
+                  whileHover={{ scale: 1.15, rotate: 10 }}
+                  whileTap={{ scale: 0.9 }}
+                  aria-label="Delete story"
+                >
+                  <Trash2 className="h-5 w-5 drop-shadow-lg" />
+                  <div className="absolute inset-0 rounded-full bg-red-600/30 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-300" />
+                </motion.button>
+              )}
+              
               {/* Close button - Ultra Enhanced */}
               <motion.button 
                 onClick={onClose}
@@ -643,6 +735,28 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
             </>
           )}
         </AnimatePresence>
+        
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent className="bg-background/95 backdrop-blur-xl border-border/50">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Story?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. Your story will be permanently deleted from our servers.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteStory}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </motion.div>
     </AnimatePresence>,
     document.body
