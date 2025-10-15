@@ -283,21 +283,23 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
   return (
     <AnimatePresence>
       <motion.div 
-        className="fixed inset-0 z-50 bg-gradient-to-br from-[#121331] to-black"
-        style={{ background: 'var(--gradient-story-bg)' }}
+        className="fixed inset-0 z-[100] bg-black overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
         ref={viewerRef}
       >
-        {/* Story content with animations */}
+        {/* Animated background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-pink-900/20 animate-gradient-shift" />
+        
+        {/* Story content with enhanced animations */}
         <motion.div 
-          className="w-full h-full flex items-center justify-center"
+          className="w-full h-full flex items-center justify-center relative"
           key={currentStory.id}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.85, rotateY: 90 }}
+          animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+          exit={{ opacity: 0, scale: 0.85, rotateY: -90 }}
           transition={{ duration: 0.3 }}
           onClick={toggleUI}
         >
@@ -355,50 +357,56 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
         <AnimatePresence>
           {showUI && (
             <>
-              {/* Close button */}
+              {/* Close button - Enhanced */}
               <motion.button 
                 onClick={onClose}
-                className="absolute top-4 right-4 z-10 text-white p-2 rounded-full bg-black/30"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
+                className="absolute top-5 right-5 z-20 text-white p-2.5 rounded-full bg-black/40 backdrop-blur-md hover:bg-black/60 transition-all duration-300 shadow-lg hover:shadow-xl group"
+                initial={{ opacity: 0, scale: 0, rotate: -180 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                exit={{ opacity: 0, scale: 0, rotate: 180 }}
+                transition={{ duration: 0.3, type: "spring" }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
                 aria-label="Close story"
               >
-                <X className="h-6 w-6" />
+                <X className="h-6 w-6 group-hover:rotate-90 transition-transform duration-300" />
               </motion.button>
               
-              {/* Progress bars */}
+              {/* Progress bars - Enhanced */}
               <motion.div 
-                className="absolute top-2 left-2 right-2 flex gap-1 z-10"
-                initial={{ opacity: 0, y: -10 }}
+                className="absolute top-3 left-3 right-3 flex gap-1.5 z-20"
+                initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
               >
                 {stories.map((_, idx) => (
-                  <div key={idx} className="h-[3px] bg-gray-600/50 flex-1 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-white"
-                      style={{ 
+                  <div key={idx} className="h-[3px] bg-white/20 backdrop-blur-sm flex-1 rounded-full overflow-hidden shadow-sm">
+                    <motion.div 
+                      className="h-full bg-gradient-to-r from-white via-white/90 to-white shadow-glow"
+                      initial={{ width: '0%' }}
+                      animate={{ 
                         width: idx < currentIndex ? '100%' : 
-                              idx === currentIndex ? `${progress}%` : '0%',
-                        transition: idx === currentIndex ? 'width 0.1s linear' : 'none'
+                              idx === currentIndex ? `${progress}%` : '0%'
+                      }}
+                      transition={{ 
+                        duration: idx === currentIndex ? 0.1 : 0.3,
+                        ease: "linear"
                       }}
                     />
                   </div>
                 ))}
               </motion.div>
               
-              {/* User info */}
+              {/* User info - Enhanced */}
               <motion.div 
-                className="absolute top-6 left-4 right-4 flex items-center gap-3 z-10"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
+                className="absolute top-10 left-4 right-4 flex items-center gap-3 z-20 bg-black/30 backdrop-blur-md p-2 rounded-2xl shadow-lg"
+                initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
               >
-                <div className="w-10 h-10 rounded-full bg-gradient-instagram p-[2px]">
+                <div className="w-12 h-12 rounded-full bg-gradient-instagram p-[2.5px] shadow-lg">
                   <div className="bg-black rounded-full w-full h-full flex items-center justify-center overflow-hidden">
                     {user.avatarUrl ? (
                       <img 
@@ -407,41 +415,48 @@ export const StoryViewer = ({ stories, userId, onClose }: StoryViewerProps) => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-white font-bold">
+                      <span className="text-white font-bold text-lg">
                         {user.username?.[0]?.toUpperCase()}
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="flex-1">
-                  <div className="text-white font-semibold">{user.username}</div>
-                  <div className="text-white text-opacity-70 text-xs">
-                    {new Date(currentStory.createdAt?.toDate()).toLocaleTimeString([], {
+                  <div className="text-white font-bold text-sm drop-shadow-lg">{user.username}</div>
+                  <div className="text-white/80 text-xs flex items-center gap-2">
+                    <span>{new Date(currentStory.createdAt?.toDate()).toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit'
-                    })}
+                    })}</span>
+                    <span className="w-1 h-1 rounded-full bg-white/60" />
+                    <span>{currentIndex + 1} of {stories.length}</span>
                   </div>
                 </div>
                 
-                {/* View count badge */}
+                {/* View count badge - Enhanced */}
                 {viewCount > 0 && userId === currentUser?.uid && (
-                  <div className="bg-black/50 text-white text-xs px-2 py-1 rounded-full flex items-center">
-                    <div className="w-1 h-1 bg-white rounded-full mr-1"></div>
-                    {viewCount} {viewCount === 1 ? 'view' : 'views'}
-                  </div>
+                  <motion.div 
+                    className="bg-white/20 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: "spring" }}
+                  >
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                    <span className="font-medium">{viewCount} {viewCount === 1 ? 'view' : 'views'}</span>
+                  </motion.div>
                 )}
               </motion.div>
               
-              {/* Caption overlay */}
+              {/* Caption overlay - Enhanced */}
               {currentStory.caption && (
                 <motion.div 
-                  className="absolute bottom-28 left-4 right-4 bg-black/60 backdrop-blur-sm p-3 rounded-lg"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.2 }}
+                  className="absolute bottom-28 left-4 right-4 bg-gradient-to-t from-black/80 via-black/60 to-transparent backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-white/10"
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                  transition={{ duration: 0.3, delay: 0.2 }}
                 >
-                  <p className="text-white">{currentStory.caption}</p>
+                  <p className="text-white font-medium leading-relaxed drop-shadow-lg">{currentStory.caption}</p>
                 </motion.div>
               )}
               
