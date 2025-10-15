@@ -472,7 +472,7 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
           
           {/* Swipe navigation areas */}
           <button 
-            className="absolute top-0 bottom-0 left-0 w-1/3 z-5"
+            className="absolute top-0 bottom-0 left-0 w-1/3 z-[5] cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
               goToPreviousStory();
@@ -480,7 +480,7 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
             aria-label="Previous story"
           />
           <button 
-            className="absolute top-0 bottom-0 right-0 w-1/3 z-5"
+            className="absolute top-0 bottom-0 right-0 w-1/3 z-[5] cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
               goToNextStory();
@@ -489,36 +489,41 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
           />
         </motion.div>
         
+        {/* Delete button - Only visible for own stories - Always shown */}
+        {userId === currentUser?.uid && (
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              pauseStory();
+              setShowDeleteDialog(true);
+            }}
+            className="absolute top-6 right-20 z-[30] text-white p-3 rounded-full bg-gradient-to-br from-red-600/40 to-orange-600/40 backdrop-blur-xl hover:from-red-600/60 hover:to-orange-600/60 transition-colors duration-200 shadow-lg border border-white/20 cursor-pointer"
+            aria-label="Delete story"
+          >
+            <Trash2 className="h-5 w-5 drop-shadow-lg" />
+          </button>
+        )}
+        
+        {/* Close button - Always shown */}
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="absolute top-6 right-6 z-[30] text-white p-3 rounded-full bg-gradient-to-br from-red-500/40 to-pink-500/40 backdrop-blur-xl hover:from-red-500/60 hover:to-pink-500/60 transition-colors duration-200 shadow-lg border border-white/20 cursor-pointer"
+          aria-label="Close story"
+        >
+          <X className="h-6 w-6 drop-shadow-lg" />
+        </button>
+        
         {/* UI Elements - conditionally shown */}
         <AnimatePresence>
           {showUI && (
             <>
-              {/* Delete button - Only visible for own stories */}
-              {userId === currentUser?.uid && (
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowDeleteDialog(true);
-                  }}
-                  className="absolute top-6 right-20 z-20 text-white p-3 rounded-full bg-gradient-to-br from-red-600/40 to-orange-600/40 backdrop-blur-xl hover:from-red-600/60 hover:to-orange-600/60 transition-colors duration-200 shadow-lg border border-white/20"
-                  aria-label="Delete story"
-                >
-                  <Trash2 className="h-5 w-5 drop-shadow-lg" />
-                </button>
-              )}
-              
-              {/* Close button */}
-              <button 
-                onClick={onClose}
-                className="absolute top-6 right-6 z-20 text-white p-3 rounded-full bg-gradient-to-br from-red-500/40 to-pink-500/40 backdrop-blur-xl hover:from-red-500/60 hover:to-pink-500/60 transition-colors duration-200 shadow-lg border border-white/20"
-                aria-label="Close story"
-              >
-                <X className="h-6 w-6 drop-shadow-lg" />
-              </button>
               
               {/* Progress bars - Minimal & Clean */}
               <motion.div 
-                className="absolute top-3 left-3 right-3 flex gap-1.5 z-20"
+                className="absolute top-3 left-3 right-3 flex gap-1.5 z-[25] pointer-events-none"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 0.8 }}
                 exit={{ opacity: 0 }}
@@ -547,7 +552,7 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
               
               {/* User info - Minimal & Clean */}
               <motion.div 
-                className="absolute top-8 left-4 flex items-center gap-2.5 z-20 bg-black/30 backdrop-blur-md p-2 pr-3 rounded-full"
+                className="absolute top-8 left-4 flex items-center gap-2.5 z-[25] bg-black/30 backdrop-blur-md p-2 pr-3 rounded-full pointer-events-none"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
@@ -591,7 +596,7 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
               {/* Caption overlay - Minimal */}
               {currentStory.caption && (
                 <motion.div 
-                  className="absolute bottom-24 left-4 right-4 bg-black/40 backdrop-blur-md p-3 rounded-2xl"
+                  className="absolute bottom-24 left-4 right-4 bg-black/40 backdrop-blur-md p-3 rounded-2xl z-[25] pointer-events-none"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
@@ -605,7 +610,7 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
               {!isMobile && (
                 <>
                   <motion.div 
-                    className="absolute top-1/2 left-4 transform -translate-y-1/2 z-30"
+                    className="absolute top-1/2 left-4 transform -translate-y-1/2 z-[25]"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 0.5 }}
                     exit={{ opacity: 0 }}
@@ -615,7 +620,7 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 rounded-full h-10 w-10"
+                      className="bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 rounded-full h-10 w-10 cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
                         goToPreviousStory();
@@ -626,7 +631,7 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
                     </Button>
                   </motion.div>
                   <motion.div 
-                    className="absolute top-1/2 right-4 transform -translate-y-1/2 z-30"
+                    className="absolute top-1/2 right-4 transform -translate-y-1/2 z-[25]"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 0.5 }}
                     exit={{ opacity: 0 }}
@@ -636,7 +641,7 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 rounded-full h-10 w-10"
+                      className="bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 rounded-full h-10 w-10 cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
                         goToNextStory();
@@ -651,7 +656,7 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
               
               {/* Interaction bar - Minimal */}
               <motion.div 
-                className="absolute bottom-4 left-4 right-4 flex items-center gap-2 bg-black/30 backdrop-blur-md p-2 rounded-2xl"
+                className="absolute bottom-4 left-4 right-4 flex items-center gap-2 bg-black/30 backdrop-blur-md p-2 rounded-2xl z-[25]"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
