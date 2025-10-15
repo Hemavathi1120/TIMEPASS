@@ -205,9 +205,11 @@ export const StoriesBar = () => {
   };
 
   const handleRefreshStories = () => {
-    // Re-fetch stories when a new one is created
+    // Re-fetch stories when a new one is created or deleted
+    console.log('Refreshing stories list...');
     if (currentUser) {
-      fetchStoriesUsers();
+      setShowStoryViewer(false); // Close viewer first
+      fetchStoriesUsers(); // Then refresh
     }
   };
   

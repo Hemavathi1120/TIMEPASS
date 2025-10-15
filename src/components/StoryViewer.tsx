@@ -225,8 +225,11 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
     setDeleting(true);
     
     try {
+      console.log('Deleting story:', currentStory.id);
+      
       // Delete the story document from Firestore
       await deleteDoc(doc(db, 'stories', currentStory.id));
+      console.log('Story document deleted from Firestore');
       
       // Try to delete the media from Storage
       try {
@@ -236,6 +239,7 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
           const decodedPath = decodeURIComponent(mediaPath);
           const storageRef = ref(storage, decodedPath);
           await deleteObject(storageRef);
+          console.log('Media deleted from Storage');
         }
       } catch (storageError) {
         console.warn('Could not delete media from storage:', storageError);
@@ -247,22 +251,18 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
         description: "Your story has been removed successfully",
       });
       
-      // Notify parent component to refresh stories
-      if (onStoryDeleted) {
-        onStoryDeleted();
-      }
-      
-      // Navigate to next story or close if no more stories
-      if (stories.length === 1) {
-        // If this was the only story, close the viewer
-        onClose();
-      } else if (currentIndex === stories.length - 1) {
-        // If deleting the last story, go to previous
-        setCurrentIndex(currentIndex - 1);
-      }
-      // If not the last story, currentIndex stays the same and will show next story
-      
       setShowDeleteDialog(false);
+      
+      // Close the viewer first to avoid stale data issues
+      onClose();
+      
+      // Then notify parent component to refresh stories
+      if (onStoryDeleted) {
+        setTimeout(() => {
+          onStoryDeleted();
+        }, 100);
+      }
+      
     } catch (error) {
       console.error('Error deleting story:', error);
       toast({
@@ -270,6 +270,7 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
         description: "Failed to delete story. Please try again.",
         variant: "destructive",
       });
+      setShowDeleteDialog(false);
     } finally {
       setDeleting(false);
     }
@@ -494,40 +495,26 @@ export const StoryViewer = ({ stories, userId, onClose, onStoryDeleted }: StoryV
             <>
               {/* Delete button - Only visible for own stories */}
               {userId === currentUser?.uid && (
-                <motion.button 
+                <button 
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowDeleteDialog(true);
                   }}
-                  className="absolute top-6 right-20 z-20 text-white p-3 rounded-full bg-gradient-to-br from-red-600/40 to-orange-600/40 backdrop-blur-xl hover:from-red-600/60 hover:to-orange-600/60 transition-all duration-300 shadow-2xl hover:shadow-red-600/50 border border-white/20 group"
-                  initial={{ opacity: 0, scale: 0, rotate: -180 }}
-                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                  exit={{ opacity: 0, scale: 0, rotate: 180 }}
-                  transition={{ duration: 0.4, type: "spring", stiffness: 300, delay: 0.1 }}
-                  whileHover={{ scale: 1.15, rotate: 10 }}
-                  whileTap={{ scale: 0.9 }}
+                  className="absolute top-6 right-20 z-20 text-white p-3 rounded-full bg-gradient-to-br from-red-600/40 to-orange-600/40 backdrop-blur-xl hover:from-red-600/60 hover:to-orange-600/60 transition-colors duration-200 shadow-lg border border-white/20"
                   aria-label="Delete story"
                 >
                   <Trash2 className="h-5 w-5 drop-shadow-lg" />
-                  <div className="absolute inset-0 rounded-full bg-red-600/30 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-300" />
-                </motion.button>
+                </button>
               )}
               
-              {/* Close button - Ultra Enhanced */}
-              <motion.button 
+              {/* Close button */}
+              <button 
                 onClick={onClose}
-                className="absolute top-6 right-6 z-20 text-white p-3 rounded-full bg-gradient-to-br from-red-500/40 to-pink-500/40 backdrop-blur-xl hover:from-red-500/60 hover:to-pink-500/60 transition-all duration-300 shadow-2xl hover:shadow-red-500/50 border border-white/20 group"
-                initial={{ opacity: 0, scale: 0, rotate: -180 }}
-                animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                exit={{ opacity: 0, scale: 0, rotate: 180 }}
-                transition={{ duration: 0.4, type: "spring", stiffness: 300 }}
-                whileHover={{ scale: 1.15, rotate: 90 }}
-                whileTap={{ scale: 0.9 }}
+                className="absolute top-6 right-6 z-20 text-white p-3 rounded-full bg-gradient-to-br from-red-500/40 to-pink-500/40 backdrop-blur-xl hover:from-red-500/60 hover:to-pink-500/60 transition-colors duration-200 shadow-lg border border-white/20"
                 aria-label="Close story"
               >
                 <X className="h-6 w-6 drop-shadow-lg" />
-                <div className="absolute inset-0 rounded-full bg-red-500/30 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-300" />
-              </motion.button>
+              </button>
               
               {/* Progress bars - Minimal & Clean */}
               <motion.div 
