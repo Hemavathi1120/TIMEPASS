@@ -227,94 +227,111 @@ export const StoriesBar = () => {
   return (
     <>
       <motion.div 
-        className="flex overflow-x-auto px-4 gap-4 hide-scrollbar max-w-full"
+        className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-4 shadow-lg"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
       >
-        {/* Create Story Button - Enhanced Design */}
-        {currentUser && (
-          <motion.div 
-            className="flex flex-col items-center cursor-pointer flex-shrink-0 group"
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-            <div className="relative">
-              <Button 
-                onClick={() => setShowCreateStory(true)} 
-                variant="outline"
-                size="icon"
-                className="w-[70px] h-[70px] rounded-full border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-all duration-300 shadow-lg group-hover:shadow-xl group-hover:shadow-primary/20"
-              >
-                <Plus className="h-7 w-7 transition-transform group-hover:rotate-90 duration-300" />
-              </Button>
-              {/* Decorative ring */}
-              <div className="absolute inset-0 rounded-full bg-gradient-instagram opacity-0 group-hover:opacity-20 blur-lg transition-opacity duration-300" />
-            </div>
-            <span className="text-xs mt-2 text-center font-medium text-foreground/70 group-hover:text-foreground transition-colors">
-              Create
-            </span>
-          </motion.div>
-        )}
+        <div className="flex overflow-x-auto gap-4 hide-scrollbar">
+          {/* Create Story Button - Enhanced Design */}
+          {currentUser && (
+            <motion.div 
+              className="flex flex-col items-center cursor-pointer flex-shrink-0 group relative"
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            >
+              <div className="relative">
+                {/* Background glow effect */}
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 opacity-0 group-hover:opacity-30 blur-xl transition-all duration-500" />
+                
+                <Button 
+                  onClick={() => setShowCreateStory(true)} 
+                  variant="outline"
+                  size="icon"
+                  className="relative w-[75px] h-[75px] rounded-full border-2 border-dashed border-primary/40 hover:border-primary bg-gradient-to-br from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/20 transition-all duration-300 shadow-lg group-hover:shadow-2xl group-hover:shadow-primary/30 overflow-hidden"
+                >
+                  {/* Animated background */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-orange-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  
+                  <Plus className="relative h-8 w-8 transition-transform group-hover:rotate-180 duration-500 text-primary" />
+                </Button>
+              </div>
+              <span className="text-xs mt-2.5 text-center font-semibold bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 bg-clip-text text-transparent opacity-70 group-hover:opacity-100 transition-opacity">
+                Create
+              </span>
+            </motion.div>
+          )}
         
-        {/* User Stories - Enhanced Design */}
-        {users.map((user, index) => (
-          <motion.div 
-            key={user.id} 
-            className="flex flex-col items-center cursor-pointer flex-shrink-0 group"
-            onClick={() => handleUserStoryClick(user.id)}
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ 
-              delay: index * 0.05,
-              type: "spring",
-              stiffness: 260,
-              damping: 20
-            }}
-            whileHover={{ scale: 1.08, y: -4 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <div className="relative">
-              {/* Gradient ring for unseen stories with enhanced animation */}
-              <div className={`w-[70px] h-[70px] rounded-full p-[3px] ${
-                user.hasUnseenStories 
-                  ? 'bg-gradient-instagram story-pulse' 
-                  : 'bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700'
-              } shadow-md group-hover:shadow-xl transition-shadow duration-300`}>
-                <div className="bg-background w-full h-full rounded-full flex items-center justify-center overflow-hidden border-[3px] border-background">
-                  {user.avatarUrl ? (
-                    <img 
-                      src={user.avatarUrl} 
-                      alt={user.username} 
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                    />
-                  ) : (
-                    <span className="text-xl font-bold bg-gradient-instagram bg-clip-text text-transparent">
-                      {user.username[0]?.toUpperCase()}
-                    </span>
+          {/* User Stories - Enhanced Design */}
+          {users.map((user, index) => (
+            <motion.div 
+              key={user.id} 
+              className="flex flex-col items-center cursor-pointer flex-shrink-0 group relative"
+              onClick={() => handleUserStoryClick(user.id)}
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ 
+                delay: index * 0.05,
+                type: "spring",
+                stiffness: 260,
+                damping: 20
+              }}
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <div className="relative">
+                {/* Enhanced gradient ring for unseen stories */}
+                <div className={`w-[75px] h-[75px] rounded-full p-[3.5px] relative ${
+                  user.hasUnseenStories 
+                    ? 'bg-gradient-to-tr from-purple-600 via-pink-600 to-orange-500 story-pulse' 
+                    : 'bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700'
+                } shadow-lg group-hover:shadow-2xl transition-all duration-300`}>
+                  
+                  {/* Inner glow ring for unseen stories */}
+                  {user.hasUnseenStories && (
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-purple-500 via-pink-500 to-orange-400 opacity-50 blur-md animate-pulse" />
                   )}
+                  
+                  <div className="relative bg-background w-full h-full rounded-full flex items-center justify-center overflow-hidden border-[3px] border-background">
+                    {user.avatarUrl ? (
+                      <img 
+                        src={user.avatarUrl} 
+                        alt={user.username} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-125 group-hover:rotate-6"
+                      />
+                    ) : (
+                      <span className="text-2xl font-bold bg-gradient-to-br from-purple-600 via-pink-600 to-orange-600 bg-clip-text text-transparent">
+                        {user.username[0]?.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
                 </div>
+                
+                {/* Enhanced glow effect for unseen stories */}
+                {user.hasUnseenStories && (
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-purple-500 via-pink-500 to-orange-500 opacity-0 group-hover:opacity-40 blur-2xl transition-all duration-500" />
+                )}
+                
+                {/* Enhanced badge for own story */}
+                {user.id === currentUser?.uid && user.hasUnseenStories && (
+                  <motion.div 
+                    className="absolute -bottom-1 -right-1 w-7 h-7 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center border-[3px] border-background shadow-xl"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.3, type: "spring", stiffness: 300 }}
+                  >
+                    <Plus className="w-3.5 h-3.5 text-white" />
+                  </motion.div>
+                )}
               </div>
               
-              {/* Glow effect for unseen stories */}
-              {user.hasUnseenStories && (
-                <div className="absolute inset-0 rounded-full bg-gradient-instagram opacity-0 group-hover:opacity-30 blur-xl transition-opacity duration-300" />
-              )}
-              
-              {/* Badge for own story */}
-              {user.id === currentUser?.uid && user.hasUnseenStories && (
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-lg">
-                  <Plus className="w-3 h-3 text-white" />
-                </div>
-              )}
-            </div>
-            
-            <span className="text-xs mt-2 truncate max-w-[70px] text-center font-medium text-foreground/70 group-hover:text-foreground transition-colors">
-              {user.id === currentUser?.uid ? 'Your Story' : user.username}
-            </span>
-          </motion.div>
-        ))}
+              <span className="text-xs mt-2.5 truncate max-w-[75px] text-center font-semibold text-foreground/60 group-hover:text-foreground group-hover:scale-105 transition-all duration-300">
+                {user.id === currentUser?.uid ? 'Your Story' : user.username}
+              </span>
+            </motion.div>
+          ))}
+        </div>
       </motion.div>
 
       {/* Story Viewer Dialog */}
