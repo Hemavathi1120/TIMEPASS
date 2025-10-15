@@ -139,9 +139,10 @@ export const CreateStoryDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" aria-describedby="story-description">
         <DialogHeader>
           <DialogTitle>Create new story</DialogTitle>
+          <p id="story-description" className="sr-only">Upload an image to share as your story</p>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
