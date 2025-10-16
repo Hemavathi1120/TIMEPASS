@@ -12,17 +12,25 @@ import imageCompression from 'browser-image-compression';
 export const CreateStoryDialog = ({ 
   isOpen, 
   onClose,
-  onStoryCreated 
+  onStoryCreated,
+  sharedMediaUrl,
+  sharedCaption,
+  sharedMediaType
 }: { 
   isOpen: boolean; 
   onClose: () => void;
   onStoryCreated?: () => void;
+  sharedMediaUrl?: string;
+  sharedCaption?: string;
+  sharedMediaType?: 'image' | 'video';
 }) => {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState('');
-  const [caption, setCaption] = useState('');
+  const [previewUrl, setPreviewUrl] = useState(sharedMediaUrl || '');
+  const [caption, setCaption] = useState(sharedCaption || '');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [isSharedContent, setIsSharedContent] = useState(!!sharedMediaUrl);
+  const [mediaType, setMediaType] = useState<'image' | 'video'>(sharedMediaType || 'image');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -31,17 +39,21 @@ export const CreateStoryDialog = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check if file is an image
-    if (!file.type.startsWith('image/')) {
+    // Check if file is an image or video
+    const isVideo = file.type.startsWith('video/');
+    const isImage = file.type.startsWith('image/');
+    
+    if (!isImage && !isVideo) {
       toast({
         title: "Invalid file type",
-        description: "Only images are supported for stories.",
+        description: "Only images and videos are supported for stories.",
         variant: "destructive",
       });
       return;
     }
 
     setMediaFile(file);
+    setMediaType(isVideo ? 'video' : 'image');
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
   };
@@ -51,41 +63,49 @@ export const CreateStoryDialog = ({
   };
 
   const handleCreateStory = async () => {
-    if (!user || !mediaFile) return;
+    if (!user || (!mediaFile && !isSharedContent)) return;
     
     setUploading(true);
     setUploadProgress(0);
     
     try {
-      // Compress the image
-      const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1920,
-        useWebWorker: true,
-        onProgress: (progress: number) => {
-          setUploadProgress(Math.round(progress * 30));
+      let mediaUrl = sharedMediaUrl || '';
+      
+      // Only upload if it's a new file (not shared content)
+      if (mediaFile && !isSharedContent) {
+        // Compress the image
+        const options = {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          onProgress: (progress: number) => {
+            setUploadProgress(Math.round(progress * 30));
+          }
+        };
+        
+        let fileToUpload = mediaFile;
+        try {
+          const compressedFile = await imageCompression(mediaFile, options);
+          fileToUpload = compressedFile;
+        } catch (err) {
+          console.warn("Image compression failed, using original file", err);
         }
-      };
-      
-      let fileToUpload = mediaFile;
-      try {
-        const compressedFile = await imageCompression(mediaFile, options);
-        fileToUpload = compressedFile;
-      } catch (err) {
-        console.warn("Image compression failed, using original file", err);
+        
+        // Generate a unique filename
+        const fileExtension = mediaFile.name.split('.').pop() || '';
+        const fileName = `stories/${user.uid}_${Date.now()}.${fileExtension}`;
+        
+        // Use our utility function for uploading
+        setUploadProgress(60);
+        mediaUrl = await uploadFileToStorage(fileToUpload, fileName, (progress) => {
+          // Map the progress from 60% to 90%
+          const mappedProgress = 60 + (progress * 0.3);
+          setUploadProgress(Math.round(mappedProgress));
+        });
+      } else {
+        // For shared content, skip upload and go straight to 90%
+        setUploadProgress(90);
       }
-      
-      // Generate a unique filename
-      const fileExtension = mediaFile.name.split('.').pop() || '';
-      const fileName = `stories/${user.uid}_${Date.now()}.${fileExtension}`;
-      
-      // Use our utility function for uploading
-      setUploadProgress(60);
-      const mediaUrl = await uploadFileToStorage(fileToUpload, fileName, (progress) => {
-        // Map the progress from 60% to 90%
-        const mappedProgress = 60 + (progress * 0.3);
-        setUploadProgress(Math.round(mappedProgress));
-      });
       
       setUploadProgress(100);
       
@@ -96,17 +116,21 @@ export const CreateStoryDialog = ({
         caption: caption.trim(),
         createdAt: serverTimestamp(),
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Expires in 24 hours
+        isShared: isSharedContent, // Track if this was shared content
       });
       
       toast({
         title: "Story created!",
-        description: "Your story has been published successfully.",
+        description: isSharedContent 
+          ? "Reel shared to your story successfully!" 
+          : "Your story has been published successfully.",
       });
       
       // Reset form
       setMediaFile(null);
       setPreviewUrl('');
       setCaption('');
+      setIsSharedContent(false);
       
       // Close dialog
       onClose();
@@ -133,6 +157,7 @@ export const CreateStoryDialog = ({
       setMediaFile(null);
       setPreviewUrl('');
       setCaption('');
+      setIsSharedContent(false);
       onClose();
     }
   };
@@ -155,11 +180,11 @@ export const CreateStoryDialog = ({
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept="image/*"
+                accept="image/*,video/*"
                 className="hidden"
               />
               <ImageIcon className="h-10 w-10 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">Click to upload an image</p>
+              <p className="text-muted-foreground">Click to upload an image or video</p>
             </div>
           ) : (
             <div className="relative w-full h-80">
@@ -178,11 +203,22 @@ export const CreateStoryDialog = ({
                 </div>
               )}
               
-              <img 
-                src={previewUrl} 
-                alt="Story preview" 
-                className="w-full h-full object-cover rounded-xl"
-              />
+              {mediaType === 'video' ? (
+                <video 
+                  src={previewUrl} 
+                  className="w-full h-full object-cover rounded-xl"
+                  controls
+                  autoPlay
+                  loop
+                  muted
+                />
+              ) : (
+                <img 
+                  src={previewUrl} 
+                  alt="Story preview" 
+                  className="w-full h-full object-cover rounded-xl"
+                />
+              )}
               
               {!uploading && (
                 <button

@@ -477,8 +477,8 @@ export const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4">
+      <DialogContent className="max-w-full max-h-full h-screen w-screen overflow-hidden flex flex-col p-0 m-0 rounded-none">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle className="text-2xl gradient-text">Search</DialogTitle>
           <DialogDescription id="search-dialog-description">
             Discover people, videos, and posts on TIMEPASS
@@ -486,24 +486,24 @@ export const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-6">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
+          <div className="px-6 py-4 bg-background/95 backdrop-blur-sm sticky top-0 z-10 border-b">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-4">
               <TabsTrigger value="users" className="flex items-center gap-2">
                 <UserIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Users</span>
+                <span>Users</span>
               </TabsTrigger>
               <TabsTrigger value="reels" className="flex items-center gap-2">
                 <Video className="w-4 h-4" />
-                <span className="hidden sm:inline">Reels</span>
+                <span>Reels</span>
               </TabsTrigger>
               <TabsTrigger value="posts" className="flex items-center gap-2">
                 <Grid3x3 className="w-4 h-4" />
-                <span className="hidden sm:inline">Posts</span>
+                <span>Posts</span>
               </TabsTrigger>
             </TabsList>
 
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <div className="relative max-w-2xl mx-auto">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
@@ -514,14 +514,14 @@ export const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
                     ? 'Search videos...'
                     : 'Search posts & tags...'
                 }
-                className="pl-10"
+                className="pl-11 h-12 text-base"
                 autoFocus
               />
             </div>
           </div>
           
-          <div className="flex-1 overflow-hidden px-6 pb-6">
-            <TabsContent value="users" className="mt-0 flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <TabsContent value="users" className="mt-0 max-w-4xl mx-auto h-full">
               {/* Recent Searches */}
               {!searchQuery && recentSearches.length > 0 && (
                 <div className="mb-6">
@@ -741,7 +741,7 @@ export const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
               )}
             </TabsContent>
 
-            <TabsContent value="reels" className="mt-0 flex-1 overflow-y-auto">
+            <TabsContent value="reels" className="mt-0 max-w-6xl mx-auto h-full">
               <div className="space-y-2">
                 {searching && (
                   <div className="flex justify-center py-8">
@@ -750,14 +750,14 @@ export const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
                 )}
 
                 {!searching && reelsResults.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Video className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>{searchQuery ? 'No reels found' : 'No reels available yet'}</p>
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Video className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg">{searchQuery ? 'No reels found' : 'No reels available yet'}</p>
                   </div>
                 )}
 
                 {!searching && reelsResults.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                     <AnimatePresence>
                       {reelsResults.map((reel, index) => (
                         <motion.div
@@ -826,7 +826,7 @@ export const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
               </div>
             </TabsContent>
 
-            <TabsContent value="posts" className="mt-0 flex-1 overflow-y-auto">
+            <TabsContent value="posts" className="mt-0 max-w-6xl mx-auto h-full">
               {/* Search Loading */}
               {searching && (
                 <div className="flex justify-center py-12">
@@ -852,7 +852,7 @@ export const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
 
               {/* Posts Grid */}
               {!searching && postsResults.length > 0 && (
-                <div className="grid grid-cols-3 gap-1">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                   <AnimatePresence>
                     {postsResults.map((post, index) => (
                       <motion.div

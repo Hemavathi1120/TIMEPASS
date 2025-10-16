@@ -38,12 +38,10 @@ export const StoriesBar = () => {
 
   const fetchStoriesUsers = async () => {
     if (!currentUser) {
-      console.log('No current user, skipping story fetch');
       return;
     }
     
     setLoading(true);
-    console.log('Fetching stories for user:', currentUser.uid);
     
     try {
       // First, get the current user and users they follow who have active stories
@@ -53,7 +51,7 @@ export const StoriesBar = () => {
       const currentUserDoc = await getDoc(doc(db, 'users', currentUser.uid));
       
       if (!currentUserDoc.exists()) {
-        console.error('Current user document not found in Firestore');
+        console.error('❌ User document not found');
         setLoading(false);
         return;
       }
@@ -63,9 +61,6 @@ export const StoriesBar = () => {
       
       // Add current user to the list to show their own stories too
       const userIds = [currentUser.uid, ...followingIds];
-      
-      console.log('Looking for stories from users:', userIds);
-      console.log('Total users to check:', userIds.length);
       
       // Create a placeholder for the current user regardless if they have stories
       const usersData: User[] = [{
@@ -111,8 +106,6 @@ export const StoriesBar = () => {
         const bExpiresAt = b.data().expiresAt?.toMillis() || 0;
         return bExpiresAt - aExpiresAt;
       });
-      
-      console.log('Found stories count:', sortedDocs.length);
       
       // Create a Set of unique user IDs who have stories
       const userIdsWithStories = new Set<string>();
@@ -166,8 +159,6 @@ export const StoriesBar = () => {
   }, [currentUser]);
 
   const handleUserStoryClick = async (userId: string) => {
-    console.log('Clicked story for user:', userId);
-    
     try {
       // Fetch all stories for this user without using complex queries that require indexes
       const now = new Date();
@@ -178,9 +169,7 @@ export const StoriesBar = () => {
         where('userId', '==', userId)
       );
       
-      console.log('Fetching stories from Firestore...');
       const storiesSnapshot = await getDocs(storiesQuery);
-      console.log('Total stories fetched:', storiesSnapshot.size);
       
       // Filter and sort in memory
       const userStories = storiesSnapshot.docs
@@ -188,11 +177,7 @@ export const StoriesBar = () => {
           // Filter out expired stories
           const data = doc.data();
           const expiresAt = data.expiresAt?.toDate();
-          const isValid = expiresAt && expiresAt > now;
-          if (!isValid) {
-            console.log('Story expired:', doc.id, 'expired at:', expiresAt);
-          }
-          return isValid;
+          return expiresAt && expiresAt > now;
         })
         .sort((a, b) => {
           // Sort by createdAt in ascending order (oldest first)
@@ -202,7 +187,6 @@ export const StoriesBar = () => {
         })
         .map(doc => {
           const data = doc.data();
-          console.log('Valid story:', doc.id, 'mediaUrl:', data.mediaUrl);
           return {
             id: doc.id,
             userId: data.userId,
@@ -215,14 +199,10 @@ export const StoriesBar = () => {
         });
       
       if (userStories.length > 0) {
-        console.log(`✅ Found ${userStories.length} active stories for user ${userId}`);
-        console.log('Opening story viewer...');
         setStories(userStories);
         setSelectedUserId(userId);
         setShowStoryViewer(true);
       } else {
-        console.warn(`⚠️ No active stories found for user ${userId}`);
-        console.log('All stories may have expired or none exist');
         toast({
           title: "No stories available",
           description: "This user's stories may have expired or been deleted.",
@@ -245,7 +225,6 @@ export const StoriesBar = () => {
 
   const handleRefreshStories = () => {
     // Re-fetch stories when a new one is created or deleted
-    console.log('Refreshing stories list...');
     if (currentUser) {
       setShowStoryViewer(false); // Close viewer first
       fetchStoriesUsers(); // Then refresh

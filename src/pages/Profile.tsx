@@ -4,7 +4,7 @@ import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { Grid, Edit, Upload, UserPlus, UserMinus, Settings, LogOut, Moon, Sun, MessageCircle } from 'lucide-react';
+import { Grid, Edit, Upload, UserPlus, UserMinus, Settings, LogOut, Moon, Sun, MessageCircle, Film, Image as ImageIcon } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { PostManagement } from '@/components/PostManagement';
 import { useTheme } from 'next-themes';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +36,7 @@ interface UserProfile {
 interface Post {
   id: string;
   media: string[];
+  mediaType?: string;
 }
 
 const Profile = () => {
@@ -46,6 +48,7 @@ const Profile = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'posts' | 'reels'>('posts');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editUsername, setEditUsername] = useState('');
   const [editBio, setEditBio] = useState('');
@@ -675,10 +678,14 @@ const Profile = () => {
                   </div>
                 )}
               </div>
-              <div className="flex space-x-12 mb-6">
+              <div className="flex space-x-8 sm:space-x-12 mb-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold">{posts.length}</p>
+                  <p className="text-2xl font-bold">{posts.filter(p => p.mediaType !== 'video').length}</p>
                   <p className="text-muted-foreground text-sm">posts</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{posts.filter(p => p.mediaType === 'video').length}</p>
+                  <p className="text-muted-foreground text-sm">reels</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold">{profile?.followers?.length || 0}</p>
@@ -693,52 +700,117 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Posts Grid */}
+          {/* Posts and Reels Tabs */}
           <div className="pt-8">
-            <div className="flex items-center justify-center mb-8 space-x-2">
-              <Grid className="w-6 h-6 text-primary" />
-              <span className="font-bold text-xl">POSTS</span>
-            </div>
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'posts' | 'reels')} className="w-full">
+              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+                <TabsTrigger value="posts" className="flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  <span>Posts</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({posts.filter(p => p.mediaType !== 'video').length})
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="reels" className="flex items-center gap-2">
+                  <Film className="w-4 h-4" />
+                  <span>Reels</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({posts.filter(p => p.mediaType === 'video').length})
+                  </span>
+                </TabsTrigger>
+              </TabsList>
 
-            {posts.length === 0 ? (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-20 bg-card border border-border rounded-3xl shadow-lg"
-              >
-                <div className="w-20 h-20 rounded-full bg-gradient-instagram/10 flex items-center justify-center mx-auto mb-6">
-                  <Grid className="w-10 h-10 text-primary" />
-                </div>
-                <p className="text-2xl font-semibold mb-2 text-muted-foreground">No posts yet</p>
-                <p className="text-muted-foreground">Share your first moment!</p>
-              </motion.div>
-            ) : (
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                {posts.map((post, index) => (
-                  <motion.div
-                    key={post.id}
-                    initial={{ opacity: 0, scale: 0.8 }}
+              {/* Posts Tab Content */}
+              <TabsContent value="posts">
+                {posts.filter(p => p.mediaType !== 'video').length === 0 ? (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: index * 0.05 }}
-                    whileHover={{ scale: 1.05, y: -4 }}
-                    className="aspect-square bg-secondary rounded-2xl overflow-hidden cursor-pointer shadow-md hover:shadow-xl transition-shadow relative group"
+                    className="text-center py-20 bg-card border border-border rounded-3xl shadow-lg"
                   >
-                    <img
-                      src={post.media[0]}
-                      alt="Post"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <PostManagement
-                      post={post}
-                      onPostUpdated={fetchProfile}
-                      onPostDeleted={fetchProfile}
-                      isOwnPost={isOwnProfile}
-                    />
+                    <div className="w-20 h-20 rounded-full bg-gradient-instagram/10 flex items-center justify-center mx-auto mb-6">
+                      <ImageIcon className="w-10 h-10 text-primary" />
+                    </div>
+                    <p className="text-2xl font-semibold mb-2 text-muted-foreground">No posts yet</p>
+                    <p className="text-muted-foreground">Share your first photo!</p>
                   </motion.div>
-                ))}
-              </div>
-            )}
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                    {posts.filter(p => p.mediaType !== 'video').map((post, index) => (
+                      <motion.div
+                        key={post.id}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.05 }}
+                        whileHover={{ scale: 1.05, y: -4 }}
+                        className="aspect-square bg-secondary rounded-2xl overflow-hidden cursor-pointer shadow-md hover:shadow-xl transition-shadow relative group"
+                      >
+                        <img
+                          src={post.media[0]}
+                          alt="Post"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <PostManagement
+                          post={post}
+                          onPostUpdated={fetchProfile}
+                          onPostDeleted={fetchProfile}
+                          isOwnPost={isOwnProfile}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Reels Tab Content */}
+              <TabsContent value="reels">
+                {posts.filter(p => p.mediaType === 'video').length === 0 ? (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-20 bg-card border border-border rounded-3xl shadow-lg"
+                  >
+                    <div className="w-20 h-20 rounded-full bg-gradient-instagram/10 flex items-center justify-center mx-auto mb-6">
+                      <Film className="w-10 h-10 text-primary" />
+                    </div>
+                    <p className="text-2xl font-semibold mb-2 text-muted-foreground">No reels yet</p>
+                    <p className="text-muted-foreground">Create your first reel!</p>
+                  </motion.div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                    {posts.filter(p => p.mediaType === 'video').map((post, index) => (
+                      <motion.div
+                        key={post.id}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.05 }}
+                        whileHover={{ scale: 1.05, y: -4 }}
+                        className="aspect-square bg-secondary rounded-2xl overflow-hidden cursor-pointer shadow-md hover:shadow-xl transition-shadow relative group"
+                      >
+                        <video
+                          src={post.media[0]}
+                          className="w-full h-full object-cover"
+                          muted
+                          playsInline
+                        />
+                        {/* Video indicator overlay */}
+                        <div className="absolute top-2 right-2 bg-black/60 rounded-full p-1.5">
+                          <Film className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <PostManagement
+                          post={post}
+                          onPostUpdated={fetchProfile}
+                          onPostDeleted={fetchProfile}
+                          isOwnPost={isOwnProfile}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
         </motion.div>
       </div>

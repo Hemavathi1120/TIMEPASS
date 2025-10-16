@@ -47,10 +47,13 @@ const Chat = () => {
         let convId = conversationId;
         let otherUserId: string | null = null;
 
+        console.log('Loading conversation:', { conversationId, hasUserId: !!location.state?.userId });
+
         // Check if starting a new conversation from location state
         const stateUserId = location.state?.userId;
         
         if (!convId && stateUserId) {
+          console.log('Creating or finding conversation for user:', stateUserId);
           // Try to find existing conversation
           const existingConvQuery = query(
             collection(db, 'conversations'),
@@ -88,15 +91,44 @@ const Chat = () => {
           
           otherUserId = stateUserId;
         } else if (convId) {
-          // Load existing conversation
-          const conversationDoc = await getDoc(doc(db, 'conversations', convId));
+          // Load existing conversation with retry logic for newly created conversations
+          console.log('Loading conversation:', convId);
+          let conversationDoc = await getDoc(doc(db, 'conversations', convId));
+          
+          // Retry if conversation not found (might be newly created and not yet synced)
           if (!conversationDoc.exists()) {
+            console.log('⚠️ Conversation not found, retrying in 1s...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            conversationDoc = await getDoc(doc(db, 'conversations', convId));
+          }
+          
+          if (!conversationDoc.exists()) {
+            console.error('❌ Conversation not found after retry:', convId);
             setError('Conversation not found');
             setLoading(false);
+            toast({
+              title: "Error",
+              description: "This conversation doesn't exist or has been deleted.",
+              variant: "destructive",
+            });
             return;
           }
 
+          console.log('✅ Conversation loaded successfully');
           const conversationData = conversationDoc.data();
+          
+          // Verify user is part of this conversation
+          if (!conversationData.participants.includes(user.uid)) {
+            setError('You are not part of this conversation');
+            setLoading(false);
+            toast({
+              title: "Access Denied",
+              description: "You don't have permission to view this conversation.",
+              variant: "destructive",
+            });
+            return;
+          }
+          
           otherUserId = conversationData.participants.find((id: string) => id !== user.uid);
           setActualConversationId(convId);
         } else {
@@ -115,6 +147,13 @@ const Chat = () => {
               username: userData.username || 'Unknown',
               avatarUrl: userData.avatarUrl || '',
             });
+          } else {
+            console.warn('Other user not found:', otherUserId);
+            setOtherUser({
+              id: otherUserId,
+              username: 'Unknown User',
+              avatarUrl: '',
+            });
           }
         }
 
@@ -123,6 +162,11 @@ const Chat = () => {
         console.error('Error loading conversation:', error);
         setError('Failed to load conversation');
         setLoading(false);
+        toast({
+          title: "Error",
+          description: "Failed to load conversation. Please try again.",
+          variant: "destructive",
+        });
       }
     };
 
@@ -133,7 +177,12 @@ const Chat = () => {
 
   // Separate effect for listening to messages
   useEffect(() => {
-    if (!user || !actualConversationId) return;
+    if (!user || !actualConversationId) {
+      console.log('Skipping message listener - missing user or conversationId');
+      return;
+    }
+
+    console.log('Setting up message listener for conversation:', actualConversationId);
 
     const messagesQuery = query(
       collection(db, 'messages'),
@@ -141,6 +190,8 @@ const Chat = () => {
     );
 
     const unsubscribe = onSnapshot(messagesQuery, async (snapshot) => {
+      console.log(`Received ${snapshot.docs.length} messages from Firestore`);
+      
       const messagesData = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -161,6 +212,7 @@ const Chat = () => {
       );
 
       if (unreadMessages.length > 0) {
+        console.log(`Marking ${unreadMessages.length} messages as read`);
         try {
           // Mark individual messages as read
           for (const msg of unreadMessages) {
@@ -171,20 +223,35 @@ const Chat = () => {
 
           // Reset unread count in conversation document
           const conversationRef = doc(db, 'conversations', actualConversationId);
-          await updateDoc(conversationRef, {
-            [`unreadCount.${user.uid}`]: 0,
-          });
+          const conversationSnap = await getDoc(conversationRef);
+          
+          if (conversationSnap.exists()) {
+            await updateDoc(conversationRef, {
+              [`unreadCount.${user.uid}`]: 0,
+            });
+            console.log('✅ Messages marked as read and unread count reset');
+          } else {
+            console.warn('⚠️ Conversation document not found when trying to reset unread count');
+          }
         } catch (error) {
-          console.error('Error marking messages as read:', error);
+          console.error('❌ Error marking messages as read:', error);
         }
       }
     }, (error) => {
-      console.error('Error listening to messages:', error);
+      console.error('❌ Error listening to messages:', error);
       setError('Failed to load messages');
+      toast({
+        title: "Connection Error",
+        description: "Failed to sync messages. Please refresh the page.",
+        variant: "destructive",
+      });
     });
 
-    return () => unsubscribe();
-  }, [actualConversationId, user]);
+    return () => {
+      console.log('Cleaning up message listener');
+      unsubscribe();
+    };
+  }, [actualConversationId, user, toast]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -192,12 +259,27 @@ const Chat = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user || !otherUser || !actualConversationId) return;
+    if (!newMessage.trim() || !user || !otherUser || !actualConversationId) {
+      console.warn('Cannot send message - missing required data:', {
+        hasMessage: !!newMessage.trim(),
+        hasUser: !!user,
+        hasOtherUser: !!otherUser,
+        hasConversationId: !!actualConversationId
+      });
+      return;
+    }
 
     const messageText = newMessage.trim();
     setNewMessage(''); // Clear input immediately for better UX
 
     try {
+      console.log('Sending message:', {
+        conversationId: actualConversationId,
+        from: user.uid,
+        to: otherUser.id,
+        textLength: messageText.length
+      });
+
       // Add message
       await addDoc(collection(db, 'messages'), {
         conversationId: actualConversationId,
@@ -207,6 +289,8 @@ const Chat = () => {
         read: false,
         createdAt: serverTimestamp(),
       });
+
+      console.log('✅ Message added to Firestore');
 
       // Update conversation with last message and increment receiver's unread count
       const conversationRef = doc(db, 'conversations', actualConversationId);
@@ -220,8 +304,11 @@ const Chat = () => {
           lastMessageTime: serverTimestamp(),
           [`unreadCount.${otherUser.id}`]: currentUnreadCount + 1,
         });
+        
+        console.log('✅ Conversation updated');
       } else {
-        // Create conversation if it doesn't exist
+        // Create conversation if it doesn't exist (failsafe)
+        console.log('Creating missing conversation document');
         await setDoc(conversationRef, {
           participants: [user.uid, otherUser.id],
           lastMessage: messageText,
@@ -232,13 +319,21 @@ const Chat = () => {
           },
           createdAt: serverTimestamp(),
         });
+        
+        console.log('✅ Conversation created');
       }
-    } catch (error) {
-      console.error('Error sending message:', error);
+    } catch (error: any) {
+      console.error('❌ Error sending message:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      
       setNewMessage(messageText); // Restore message on error
       toast({
-        title: "Error",
-        description: "Failed to send message. Please try again.",
+        title: "Failed to send message",
+        description: error.message || "Please check your connection and try again.",
         variant: "destructive",
       });
     }

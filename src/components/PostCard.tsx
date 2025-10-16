@@ -173,30 +173,37 @@ export const PostCard = ({ post }: { post: Post }) => {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4 }}
       transition={{ duration: 0.3 }}
-      className="bg-card border border-border rounded-3xl overflow-hidden mb-6 shadow-lg hover:shadow-xl"
+      className="bg-card border border-border rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg hover:shadow-xl gpu-accelerated"
       style={{ boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)' }}
     >
       {/* Post Header */}
-      <div className="flex items-center p-4 space-x-3">
-        <div className="w-11 h-11 rounded-full bg-gradient-instagram flex items-center justify-center shadow-md">
+      <div className="flex items-center p-3 sm:p-4 space-x-3 no-tap-highlight">
+        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-instagram flex items-center justify-center shadow-md flex-shrink-0">
           {author?.avatarUrl ? (
-            <img src={author.avatarUrl} alt={author.username} className="w-full h-full rounded-full object-cover" />
+            <img 
+              src={author.avatarUrl} 
+              alt={author.username} 
+              className="w-full h-full rounded-full object-cover" 
+              loading="lazy"
+            />
           ) : (
-            <span className="text-white font-bold text-lg">{author?.username?.[0]?.toUpperCase()}</span>
+            <span className="text-white font-bold text-base sm:text-lg">{author?.username?.[0]?.toUpperCase()}</span>
           )}
         </div>
-        <span className="font-semibold text-base">{author?.username || 'Loading...'}</span>
+        <span className="font-semibold text-sm sm:text-base truncate">{author?.username || 'Loading...'}</span>
       </div>
 
       {/* Post Image */}
       <div 
-        className="relative aspect-square bg-secondary cursor-pointer select-none"
+        className="relative aspect-square bg-secondary cursor-pointer no-select touch-manipulate"
         onDoubleClick={handleDoubleClick}
       >
         <img
           src={post.media[0]}
           alt="Post"
           className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
         />
         
         {/* Double-click heart animation */}
@@ -208,22 +215,22 @@ export const PostCard = ({ post }: { post: Post }) => {
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
           >
-            <Heart className="w-24 h-24 fill-white text-white drop-shadow-lg" />
+            <Heart className="w-20 h-20 sm:w-24 sm:h-24 fill-white text-white drop-shadow-lg" />
           </motion.div>
         )}
       </div>
 
       {/* Post Actions */}
-      <div className="p-4 space-y-3">
-        <div className="flex items-center space-x-2">
+      <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
+        <div className="flex items-center space-x-1 sm:space-x-2">
           <Button
             variant="ghost"
             size="icon"
             onClick={handleLike}
-            className="hover:bg-transparent hover:scale-110 transition-transform"
+            className="hover:bg-transparent hover:scale-110 transition-transform touch-target no-tap-highlight"
           >
             <Heart 
-              className={`w-7 h-7 transition-all ${
+              className={`w-6 h-6 sm:w-7 sm:h-7 transition-all ${
                 liked ? 'fill-red-500 text-red-500' : 'hover:text-muted-foreground'
               }`} 
             />
@@ -232,32 +239,32 @@ export const PostCard = ({ post }: { post: Post }) => {
             variant="ghost" 
             size="icon" 
             onClick={() => setShowComments(!showComments)}
-            className="hover:bg-transparent hover:scale-110 transition-transform"
+            className="hover:bg-transparent hover:scale-110 transition-transform touch-target no-tap-highlight"
           >
-            <MessageCircle className={`w-7 h-7 hover:text-muted-foreground ${showComments ? 'fill-primary text-primary' : ''}`} />
+            <MessageCircle className={`w-6 h-6 sm:w-7 sm:h-7 hover:text-muted-foreground ${showComments ? 'fill-primary text-primary' : ''}`} />
           </Button>
           <Button 
             variant="ghost" 
             size="icon"
             onClick={() => setShowShareDialog(true)}
-            className="hover:bg-transparent hover:scale-110 transition-transform"
+            className="hover:bg-transparent hover:scale-110 transition-transform touch-target no-tap-highlight"
           >
-            <Share2 className="w-7 h-7 hover:text-muted-foreground" />
+            <Share2 className="w-6 h-6 sm:w-7 sm:h-7 hover:text-muted-foreground" />
           </Button>
         </div>
 
         <div>
-          <p className="font-semibold mb-1">{post.likesCount} likes</p>
+          <p className="font-semibold text-sm sm:text-base mb-1">{post.likesCount} likes</p>
           {post.caption && (
-            <p>
+            <p className="text-sm sm:text-base leading-relaxed">
               <span className="font-semibold mr-2">{author?.username}</span>
-              {post.caption}
+              <span className="break-words">{post.caption}</span>
             </p>
           )}
           {post.commentsCount > 0 && !showComments && (
             <button
               onClick={() => setShowComments(true)}
-              className="text-muted-foreground text-sm mt-1 hover:text-foreground transition-colors"
+              className="text-muted-foreground text-xs sm:text-sm mt-2 hover:text-foreground transition-colors no-tap-highlight touch-target"
             >
               View all {post.commentsCount} comments
             </button>

@@ -50,11 +50,18 @@ const Messages = () => {
     );
 
     const unsubscribe = onSnapshot(conversationsQuery, async (snapshot) => {
+      console.log(`Loading ${snapshot.docs.length} conversations`);
+      
       // Quick initial render with cached user data - sort on client side
       const quickConversations = snapshot.docs
         .map((conversationDoc) => {
         const data = conversationDoc.data();
         const otherUserId = data.participants.find((id: string) => id !== user.uid);
+        
+        if (!otherUserId) {
+          console.warn('Conversation has no other user:', conversationDoc.id);
+          return null;
+        }
         
         // Use cached user data if available
         const cachedUser = userCache[otherUserId];
@@ -70,6 +77,7 @@ const Messages = () => {
           unreadCount: data.unreadCount?.[user.uid] || 0, // Use stored unread count
         };
       })
+      .filter((conv): conv is Conversation => conv !== null)
       .sort((a, b) => {
         // Sort by lastMessageTime descending (most recent first)
         const aTime = a.lastMessageTime?.toMillis?.() || 0;
@@ -87,24 +95,35 @@ const Messages = () => {
           const data = doc.data();
           return data.participants.find((id: string) => id !== user.uid);
         })
-        .filter(userId => !userCache[userId]);
+        .filter(userId => userId && !userCache[userId]);
 
       if (missingUserIds.length > 0) {
+        console.log(`Fetching ${missingUserIds.length} missing user profiles`);
+        
         // Batch fetch user data
         const uniqueUserIds = [...new Set(missingUserIds)];
         const userPromises = uniqueUserIds.map(userId =>
-          getDoc(doc(db, 'users', userId))
+          getDoc(doc(db, 'users', userId)).catch(err => {
+            console.error(`Failed to fetch user ${userId}:`, err);
+            return null;
+          })
         );
 
         const userDocs = await Promise.all(userPromises);
         const newUserCache = { ...userCache };
         
         userDocs.forEach((userDoc, index) => {
-          if (userDoc.exists()) {
+          if (userDoc?.exists()) {
             const userData = userDoc.data();
             newUserCache[uniqueUserIds[index]] = {
               username: userData.username || 'Unknown',
               avatarUrl: userData.avatarUrl || '',
+            };
+          } else if (userDoc === null) {
+            // User fetch failed, use placeholder
+            newUserCache[uniqueUserIds[index]] = {
+              username: 'Unknown User',
+              avatarUrl: '',
             };
           }
         });
@@ -116,6 +135,9 @@ const Messages = () => {
           .map((conversationDoc) => {
             const data = conversationDoc.data();
             const otherUserId = data.participants.find((id: string) => id !== user.uid);
+            
+            if (!otherUserId) return null;
+            
             const userData = newUserCache[otherUserId];
 
             return {
@@ -129,6 +151,7 @@ const Messages = () => {
               unreadCount: data.unreadCount?.[user.uid] || 0,
             };
           })
+          .filter((conv): conv is Conversation => conv !== null)
           .sort((a, b) => {
             // Sort by lastMessageTime descending
             const aTime = a.lastMessageTime?.toMillis?.() || 0;
@@ -137,9 +160,10 @@ const Messages = () => {
           });
 
         setConversations(updatedConversations);
+        console.log('✅ Conversations loaded successfully');
       }
     }, (error) => {
-      console.error('Error loading conversations:', error);
+      console.error('❌ Error loading conversations:', error);
       setLoading(false);
     });
 
